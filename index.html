@@ -329,6 +329,14 @@ input[type=range]{accent-color:var(--accent);cursor:pointer;height:3px;}
 <div id="live-ticker" style="display:none;">
   <div class="ticker-inner" id="ticker-content"></div>
 </div>
+<!-- FINNHUB KEY SETUP — shows once until key is saved -->
+<div id="finnhub-setup" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 20px;font-size:.7rem;font-family:'Space Mono',monospace;color:var(--text2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+  <span class="fh-status" style="color:var(--amber);">⚡ LIVE DATA:</span>
+  <span>Enter your free <a href="https://finnhub.io/register" target="_blank" style="color:var(--accent);">Finnhub API key</a> to enable real-time market ticker</span>
+  <input id="fh-key-input" type="text" placeholder="e.g. ct1abc2def3ghi4jkl5" style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text);font-family:'Space Mono',monospace;font-size:.65rem;width:200px;outline:none;" />
+  <button onclick="saveFinnhubKey()" style="background:var(--accent);color:#000;border:none;border-radius:5px;padding:3px 10px;font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;cursor:pointer;">SAVE & CONNECT</button>
+  <button onclick="document.getElementById('finnhub-setup').style.display='none'" style="background:transparent;border:1px solid var(--border);border-radius:5px;padding:3px 8px;color:var(--text3);font-size:.65rem;cursor:pointer;font-family:'Space Mono',monospace;">✕ dismiss</button>
+</div>
 
 <!-- ═══ DASHBOARD PAGE ═══ -->
 <div class="page active" id="page-dashboard">
@@ -1576,95 +1584,89 @@ function renderMap(){
   }
 }
 // ═══════════════════════════════════════════════
-// LIVE MARKET TICKER
-// Tries 3 methods in sequence until one works:
-// 1. Direct Yahoo Finance v8 (works if no CORS block)
-// 2. corsproxy.io wrapper
-// 3. allorigins.win wrapper
-// Refreshes every 60s. Graceful silent fallback (no error shown).
+// LIVE MARKET TICKER — Finnhub.io
+// Free API: https://finnhub.io/register (30 sec signup)
+// Free tier: 60 calls/min, real quotes, CORS-friendly
+// Key stored in localStorage — enter once, works forever.
 // ═══════════════════════════════════════════════
-const TICKER_SYMBOLS=[
-  {sym:'^GSPTSE',  label:'TSX'},
-  {sym:'^GSPC',    label:'S&P 500'},
-  {sym:'^NDX',     label:'NASDAQ 100'},
-  {sym:'GC=F',     label:'Gold'},
-  {sym:'SI=F',     label:'Silver'},
-  {sym:'CL=F',     label:'Oil WTI'},
-  {sym:'CADUSD=X', label:'CAD/USD'},
-  {sym:'BTC-USD',  label:'Bitcoin'},
-  {sym:'VXC.TO',   label:'VXC'},
-  {sym:'VCN.TO',   label:'VCN'},
-  {sym:'VSP.TO',   label:'VSP'},
+
+const FH_SYMBOLS=[
+  {sym:'BINANCE:BTCUSDT', label:'Bitcoin',    fmt:'price'},
+  {sym:'OANDA:XAU_USD',   label:'Gold',       fmt:'price'},
+  {sym:'OANDA:XAG_USD',   label:'Silver',     fmt:'price'},
+  {sym:'OANDA:CADUSD',    label:'CAD/USD',    fmt:'fx'},
+  {sym:'OANDA:UKOIL',     label:'Brent Oil',  fmt:'price'},
+  {sym:'OANDA:SPX500USD', label:'S&P 500',    fmt:'idx'},
+  {sym:'OANDA:NAS100USD', label:'NASDAQ 100', fmt:'idx'},
+  {sym:'VXC.TO',          label:'VXC.TO',     fmt:'cad'},
+  {sym:'VCN.TO',          label:'VCN.TO',     fmt:'cad'},
+  {sym:'ZSP.TO',          label:'ZSP.TO',     fmt:'cad'},
 ];
 
-async function yahooFetch(sym){
-  const base=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2d`;
-  const proxies=[
-    base,
-    `https://corsproxy.io/?${encodeURIComponent(base)}`,
-    `https://api.allorigins.win/get?url=${encodeURIComponent(base)}`,
-  ];
-  for(const url of proxies){
-    try{
-      const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
-      if(!r.ok)continue;
-      const raw=await r.json();
-      // allorigins wraps in {contents:...}
-      const data=raw.contents?JSON.parse(raw.contents):raw;
-      const meta=data?.chart?.result?.[0]?.meta;
-      if(!meta||!meta.regularMarketPrice)continue;
-      const price=meta.regularMarketPrice;
-      const prev=meta.previousClose||meta.chartPreviousClose;
-      const chgPct=prev?((price-prev)/prev*100):null;
-      return{price,chgPct,currency:meta.currency||''};
-    }catch{continue;}
-  }
-  return null;
+const FH_KEY_STORE='fh_api_key_equitable';
+function getFinnhubKey(){try{return localStorage.getItem(FH_KEY_STORE)||'';}catch{return '';}}
+function saveFinnhubKey(){
+  const v=document.getElementById('fh-key-input')?.value?.trim();
+  if(!v){alert('Please enter your Finnhub API key.');return;}
+  try{localStorage.setItem(FH_KEY_STORE,v);}catch{}
+  document.getElementById('finnhub-setup').style.display='none';
+  loadLiveTicker();
 }
 
-function fmtPrice(price,sym){
-  if(sym.includes('CAD')||sym.includes('USD'))return price.toFixed(4);
-  if(price>10000)return price.toLocaleString('en-CA',{maximumFractionDigits:0});
-  if(price>100)return price.toFixed(2);
+async function finnhubQuote(sym,key){
+  try{
+    const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${key}`,{signal:AbortSignal.timeout(6000)});
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(!d||!d.c||d.c===0)return null;
+    return{price:d.c,chgPct:d.dp,prevClose:d.pc};
+  }catch{return null;}
+}
+
+function fmtFH(price,fmt){
+  if(fmt==='fx')return price.toFixed(4);
+  if(fmt==='cad')return '$'+price.toFixed(2);
+  if(fmt==='idx')return price.toLocaleString('en-CA',{maximumFractionDigits:0});
+  if(price>1000)return price.toLocaleString('en-CA',{maximumFractionDigits:2});
   return price.toFixed(2);
 }
 
 async function loadLiveTicker(){
   const el=document.getElementById('ticker-content');
+  const bar=document.getElementById('live-ticker');
+  const setup=document.getElementById('finnhub-setup');
   if(!el)return;
-  // Fetch all symbols in parallel
-  const results=await Promise.allSettled(
-    TICKER_SYMBOLS.map(async({sym,label})=>({sym,label,q:await yahooFetch(sym)}))
-  );
-  const items=results
-    .filter(r=>r.status==='fulfilled'&&r.value.q)
-    .map(r=>r.value);
-  // If no data at all, hide ticker bar silently
-  if(!items.length){
-    document.getElementById('live-ticker').style.display='none';
+  const key=getFinnhubKey();
+  if(!key){
+    if(bar)bar.style.display='none';
+    if(setup)setup.style.display='flex';
     return;
   }
-  // Build scrolling items × 2 for seamless loop
-  const makeItems=()=>items.map(({label,q,sym})=>{
+  if(setup)setup.style.display='none';
+  const results=await Promise.allSettled(FH_SYMBOLS.map(async({sym,label,fmt})=>({sym,label,fmt,q:await finnhubQuote(sym,key)})));
+  const items=results.filter(r=>r.status==='fulfilled'&&r.value.q).map(r=>r.value);
+  if(!items.length){
+    if(bar)bar.style.display='none';
+    if(setup){setup.style.display='flex';const sp=setup.querySelector('.fh-status');if(sp)sp.textContent='⚠ Invalid API key —';}
+    return;
+  }
+  const sep='<span style="color:var(--border);padding:0 12px;opacity:.4;">·</span>';
+  const makeItems=()=>items.map(({label,fmt,q})=>{
     const p=q.chgPct;
     const cls=p>0.05?'up':p<-0.05?'dn':'flat';
     const arrow=p>0.05?'▲':p<-0.05?'▼':'–';
-    return `<span class="t-item">
-      <span class="t-name">${label}</span>
-      <span class="t-val">${fmtPrice(q.price,sym)}</span>
-      <span class="t-chg ${cls}">${arrow}${p!=null?(p>=0?'+':'')+p.toFixed(2)+'%':'—'}</span>
-    </span>`;
+    return `<span class="t-item"><span class="t-name">${label}</span><span class="t-val">${fmtFH(q.price,fmt)}</span><span class="t-chg ${cls}">${arrow}${p!=null?(p>=0?'+':'')+p.toFixed(2)+'%':'—'}</span></span>${sep}`;
   }).join('');
   el.innerHTML=makeItems()+makeItems();
-  el.style.animationDuration=Math.max(30,items.length*4)+'s';
-  // Show ticker bar (in case it was hidden)
-  document.getElementById('live-ticker').style.display='flex';
+  el.style.animationDuration=Math.max(35,items.length*5)+'s';
+  if(bar)bar.style.display='flex';
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  setTimeout(loadLiveTicker,800);
+  setTimeout(loadLiveTicker,500);
   setInterval(loadLiveTicker,60000);
 });
+
 </script>
 </body>
 </html>
