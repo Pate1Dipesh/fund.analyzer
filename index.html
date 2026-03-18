@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FA — Fund Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Lexend:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══════════════ TOKENS ═══════════════ */
+[data-theme="dark"]{
+  --bg:#060911;--bg2:#0d1321;--bg3:#121c2e;--bg4:#1a2540;
+  --border:rgba(0,210,255,0.08);--border2:rgba(0,210,255,0.04);
+  --text:#ddeeff;--text2:#7899bb;--text3:#3a5270;
+  --accent:#00d2ff;--accent2:#7c5cbf;--accent3:#00ff9d;
+  --red:#ff4d6d;--amber:#ffb800;--purple:#a78bfa;
+  --card:rgba(13,19,33,0.9);--hbg:rgba(6,9,17,0.95);
+  --glow:rgba(0,210,255,0.1);--glow2:rgba(0,255,157,0.08);
+  --scanline:rgba(0,210,255,0.015);
+}
+[data-theme="light"]{
+  --bg:#f5f7fb;--bg2:#ffffff;--bg3:#edf2f9;--bg4:#dce6f5;
+  --border:rgba(14,100,180,0.1);--border2:rgba(14,100,180,0.05);
+  --text:#0a1628;--text2:#4a6585;--text3:#8aa0bb;
+  --accent:#0080cc;--accent2:#5b3fa0;--accent3:#00875a;
+  --red:#c0392b;--amber:#b07000;--purple:#6d4bb0;
+  --card:rgba(255,255,255,0.95);--hbg:rgba(245,247,251,0.97);
+  --glow:rgba(0,128,204,0.06);--glow2:rgba(0,135,90,0.05);
+  --scanline:transparent;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Lexend',sans-serif;background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;overflow-x:hidden;min-height:100vh;transition:background .4s,color .4s;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--accent2);border-radius:2px;opacity:.5;}
+
+/* ── SCANLINES (dark only) ── */
+[data-theme="dark"] body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,var(--scanline) 0px,var(--scanline) 1px,transparent 1px,transparent 3px);opacity:.4;}
+[data-theme="dark"] body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 800px 600px at 10% 5%,rgba(0,210,255,0.04) 0%,transparent 60%),radial-gradient(ellipse 600px 800px at 90% 90%,rgba(124,92,191,0.05) 0%,transparent 60%);}
+
+/* ═══════════════ HEADER ═══════════════ */
+header{position:sticky;top:0;z-index:500;background:var(--hbg);backdrop-filter:blur(30px) saturate(200%);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;padding:0 24px;gap:20px;}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-badge{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:#fff;letter-spacing:-0.5px;box-shadow:0 0 20px rgba(0,210,255,0.3);flex-shrink:0;}
+.logo-name{font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;color:var(--text);letter-spacing:1px;}
+.logo-name span{color:var(--accent);}
+nav{display:flex;align-items:center;gap:2px;margin-left:16px;}
+.nav-btn{padding:6px 14px;border-radius:6px;background:transparent;border:none;color:var(--text2);font-family:'Lexend',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;transition:all .18s;white-space:nowrap;}
+.nav-btn:hover{color:var(--text);background:var(--bg3);}
+.nav-btn.active{background:var(--glow);color:var(--accent);border:1px solid var(--border);font-weight:600;}
+.hdr-spacer{flex:1;}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.live-dot-wrap{display:flex;align-items:center;gap:5px;font-size:.68rem;color:var(--accent3);font-family:'Space Mono',monospace;}
+.ldot{width:6px;height:6px;border-radius:50%;background:var(--accent3);animation:lp 1.8s ease-in-out infinite;box-shadow:0 0 6px var(--accent3);}
+@keyframes lp{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hdr-date{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--text3);padding:4px 8px;border:1px solid var(--border);border-radius:5px;}
+.theme-btn{width:32px;height:32px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;}
+.theme-btn:hover{border-color:var(--accent);}
+
+/* ═══════════════ PAGES ═══════════════ */
+.page{display:none;min-height:calc(100vh - 56px);}
+.page.active{display:block;animation:pgIn .3s ease;}
+@keyframes pgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* ═══════════════ DASHBOARD ═══════════════ */
+.dash{padding:28px 32px;}
+.dash-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.kpi.c1::before{background:linear-gradient(90deg,var(--accent),transparent);}
+.kpi.c2::before{background:linear-gradient(90deg,var(--accent3),transparent);}
+.kpi.c3::before{background:linear-gradient(90deg,var(--amber),transparent);}
+.kpi.c4::before{background:linear-gradient(90deg,var(--purple),transparent);}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+.kpi-label{font-size:.6rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;font-family:'Space Mono',monospace;}
+.kpi-value{font-size:1.6rem;font-weight:800;color:var(--text);line-height:1;font-family:'Space Mono',monospace;}
+.kpi-sub{font-size:.68rem;color:var(--text2);margin-top:5px;}
+
+/* PICKS SECTION */
+.dash-picks-title{font-family:'Space Mono',monospace;font-size:.75rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+.picks5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px;}
+.pick5c{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .22s;position:relative;overflow:hidden;}
+.pick5c::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--glow),transparent);opacity:0;transition:opacity .2s;}
+.pick5c:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 0 20px var(--glow);}
+.pick5c:hover::after{opacity:1;}
+.pick5c .pk-rank{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--text3);margin-bottom:6px;letter-spacing:1px;}
+.pick5c .pk-name{font-size:.78rem;font-weight:600;color:var(--text);margin-bottom:10px;line-height:1.4;}
+.pick5c .pk-ret{font-family:'Space Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--accent3);}
+.pick5c .pk-mer{font-size:.65rem;color:var(--text3);margin-top:4px;}
+.pick5c .pk-cat{display:inline-block;font-size:.58rem;padding:2px 6px;border-radius:3px;background:var(--glow);color:var(--accent);border:1px solid var(--border);margin-bottom:8px;font-weight:600;}
+/* 5-year returns grid on pick cards */
+.pk-5yr{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:10px;border-top:1px solid var(--border2);padding-top:8px;}
+.pk-yr-col{text-align:center;}
+.pk-yr-lbl{font-family:'Space Mono',monospace;font-size:.52rem;color:var(--text3);margin-bottom:2px;}
+.pk-yr-val{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;}
+.pk-yr-bar{height:3px;border-radius:2px;margin-top:2px;width:100%;}
+/* Live ticker bar */
+#live-ticker{display:flex;align-items:center;gap:0;overflow:hidden;background:var(--bg2);border-bottom:1px solid var(--border);height:28px;font-family:'Space Mono',monospace;font-size:.65rem;}
+.ticker-inner{display:flex;gap:32px;padding:0 20px;animation:tickerScroll 40s linear infinite;white-space:nowrap;align-items:center;}
+.ticker-inner:hover{animation-play-state:paused;}
+@keyframes tickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+.t-item{display:flex;align-items:center;gap:6px;color:var(--text2);}
+.t-name{color:var(--text3);font-size:.6rem;}
+.t-val{font-weight:700;}
+.t-chg.up{color:var(--accent3);}
+.t-chg.dn{color:var(--red);}
+.t-chg.flat{color:var(--text3);}
+.t-loading{color:var(--text3);font-size:.6rem;padding:0 20px;}
+/* KPI value fix for long names */
+.kpi-value-name{font-size:1.4rem;font-weight:800;font-family:'Space Mono',monospace;color:var(--text);line-height:1;}
+.kpi-value-sub{font-size:.72rem;color:var(--text2);margin-top:5px;font-family:'Lexend',sans-serif;font-weight:400;line-height:1.4;}
+
+/* DASH CHARTS */
+.dash-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.dash-charts.three{grid-template-columns:1fr 1fr 1fr;}
+.dash-charts.wide{grid-template-columns:2fr 1fr;}
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;transition:border-color .2s;}
+.chart-box.clickable{cursor:pointer;}
+.chart-box.clickable:hover{border-color:var(--accent);}
+.chart-box-title{font-family:'Space Mono',monospace;font-size:.68rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text2);margin-bottom:4px;}
+.chart-box-sub{font-size:.65rem;color:var(--text3);margin-bottom:14px;}
+
+/* ═══════════════ ALL FUNDS ═══════════════ */
+.funds-page{padding:20px 28px;}
+/* TOP FILTER BAR */
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;}
+.filter-bar label{font-size:.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);font-family:'Space Mono',monospace;}
+.fsel{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:6px 10px;color:var(--text);font-family:'Lexend',sans-serif;font-size:.75rem;outline:none;cursor:pointer;transition:border-color .2s;min-width:140px;}
+.fsel:focus{border-color:var(--accent);}
+.fsrch{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:6px 28px 6px 10px;color:var(--text);font-family:'Lexend',sans-serif;font-size:.75rem;outline:none;width:200px;transition:border-color .2s;}
+.fsrch:focus{border-color:var(--accent);}
+.srch-wrap{position:relative;}
+.srch-ico{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:11px;pointer-events:none;}
+.fbtn{padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--text2);font-family:'Lexend',sans-serif;font-size:.72rem;cursor:pointer;transition:all .15s;}
+.fbtn:hover{border-color:var(--accent);color:var(--accent);}
+.fbtn.on{background:var(--glow);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.filter-count{margin-left:auto;font-family:'Space Mono',monospace;font-size:.65rem;color:var(--accent);padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:var(--glow);}
+
+/* TABLE */
+.funds-table-wrap{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.tbl-scr{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border);}
+th{padding:10px 12px;text-align:left;font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text3);cursor:pointer;white-space:nowrap;user-select:none;transition:color .15s;}
+th:hover{color:var(--accent);}
+th .sa{opacity:.4;font-size:9px;}
+tbody tr{border-bottom:1px solid var(--border2);transition:background .12s;cursor:pointer;}
+tbody tr:last-child{border:none;}
+tbody tr:hover{background:var(--bg3);}
+tbody tr:hover td.fn{color:var(--accent);}
+td{padding:10px 12px;font-size:.77rem;vertical-align:middle;}
+td.fn{font-weight:600;color:var(--text);white-space:nowrap;}
+td.fn small{display:block;font-size:.62rem;color:var(--text3);font-weight:400;margin-top:1px;}
+.rn{font-weight:700;font-variant-numeric:tabular-nums;font-family:'Space Mono',monospace;font-size:.74rem;}
+.rn.pos{color:var(--accent3);}
+.rn.neg{color:var(--red);}
+.rn.neu{color:var(--text3);}
+.cb{display:inline-flex;align-items:center;padding:2px 6px;border-radius:3px;font-size:.58rem;font-weight:700;white-space:nowrap;}
+.cbG{background:rgba(0,210,255,.1);color:var(--accent);border:1px solid rgba(0,210,255,.2);}
+.cbC{background:rgba(255,77,109,.1);color:var(--red);border:1px solid rgba(255,77,109,.2);}
+.cbU{background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
+.cbB{background:rgba(0,255,157,.1);color:var(--accent3);border:1px solid rgba(0,255,157,.2);}
+.cbF{background:rgba(255,184,0,.1);color:var(--amber);border:1px solid rgba(255,184,0,.2);}
+.cbN{background:rgba(124,92,191,.15);color:#c084fc;border:1px solid rgba(124,92,191,.3);}
+.cbM{background:rgba(100,120,140,.1);color:var(--text2);border:1px solid var(--border);}
+.rec{display:inline-flex;align-items:center;padding:3px 7px;border-radius:3px;font-size:.6rem;font-weight:700;font-family:'Space Mono',monospace;}
+.rb{background:rgba(0,255,157,.1);color:var(--accent3);border:1px solid rgba(0,255,157,.25);}
+.rh{background:rgba(255,184,0,.1);color:var(--amber);border:1px solid rgba(255,184,0,.2);}
+.rw{background:rgba(167,139,250,.1);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
+.ra{background:rgba(255,77,109,.1);color:var(--red);border:1px solid rgba(255,77,109,.2);}
+.spk{display:inline-flex;align-items:flex-end;gap:2px;height:22px;}
+.sb{width:3px;border-radius:1.5px;}
+.star-b{background:none;border:none;cursor:pointer;font-size:13px;color:var(--text3);transition:all .15s;line-height:1;}
+.star-b:hover{transform:scale(1.2);}
+.star-b.on{color:var(--amber);}
+
+/* MER bar */
+.mer-bar-wrap{display:flex;align-items:center;gap:6px;}
+.mer-bar{height:4px;border-radius:2px;background:var(--bg4);width:50px;overflow:hidden;}
+.mer-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent3),var(--accent));}
+.mer-text{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--text2);width:32px;}
+
+/* ═══════════════ MODAL / DRAWER ═══════════════ */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);}
+.modal-overlay.open{display:flex;align-items:flex-start;justify-content:flex-end;animation:fadein .2s ease;}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.modal-panel{width:520px;height:100vh;background:var(--bg2);border-left:1px solid var(--border);overflow-y:auto;padding:24px;animation:slideIn .28s cubic-bezier(.4,0,.2,1);position:relative;}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+.modal-close{position:absolute;top:16px;right:16px;width:28px;height:28px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s;z-index:10;}
+.modal-close:hover{background:var(--red);color:#fff;border-color:var(--red);}
+.m-badge-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:16px;}
+.m-name{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;color:var(--text);padding-right:34px;margin-bottom:4px;line-height:1.35;}
+.m-cat-full{font-size:.7rem;color:var(--text2);margin-bottom:16px;}
+
+/* MODAL METRIC GRID */
+.m-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px;}
+.m-met{background:var(--bg3);border-radius:9px;padding:10px 8px;text-align:center;border:1px solid var(--border2);}
+.m-met .my{font-size:.58rem;color:var(--text3);margin-bottom:3px;font-family:'Space Mono',monospace;letter-spacing:.5px;}
+.m-met .mv{font-family:'Space Mono',monospace;font-size:.88rem;font-weight:700;}
+
+/* MODAL CHART */
+.m-chart{height:140px;margin-bottom:20px;}
+
+/* MODAL STATS */
+.m-section{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);margin-bottom:8px;margin-top:16px;}
+.m-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border2);font-size:.77rem;}
+.m-row:last-child{border:none;}
+.m-row .mk{color:var(--text2);}
+.m-row .mval{font-weight:600;color:var(--text);}
+
+/* ALLOCATION BARS */
+.alloc-bar-row{margin-bottom:6px;}
+.alloc-bar-label{display:flex;justify-content:space-between;font-size:.68rem;margin-bottom:3px;}
+.alloc-bar-label .al{color:var(--text2);}
+.alloc-bar-label .ar{font-family:'Space Mono',monospace;color:var(--text);}
+.alloc-bar-track{background:var(--bg4);border-radius:3px;height:5px;overflow:hidden;}
+.alloc-bar-fill{height:100%;border-radius:3px;transition:width .6s ease;}
+
+/* TOP HOLDINGS */
+.holdings-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;}
+.hold-item{background:var(--bg3);border-radius:7px;padding:8px 10px;border:1px solid var(--border2);}
+.hold-item .hn{font-size:.7rem;font-weight:600;color:var(--text);}
+.hold-item .hp{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--accent);font-weight:700;}
+
+/* ADVISOR NOTE */
+.advisor-note{background:linear-gradient(135deg,var(--glow),var(--glow2));border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:14px;}
+.advisor-note .at{font-family:'Space Mono',monospace;font-size:.62rem;font-weight:700;color:var(--accent);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;}
+.advisor-note p{font-size:.77rem;color:var(--text2);line-height:1.7;}
+
+/* COMPOUND RETURN */
+.cmpd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+.cmpd-item{background:var(--bg3);border-radius:7px;padding:8px;text-align:center;border:1px solid var(--border2);}
+.cmpd-item .cp{font-size:.58rem;color:var(--text3);font-family:'Space Mono',monospace;margin-bottom:3px;}
+.cmpd-item .cv{font-family:'Space Mono',monospace;font-size:.82rem;font-weight:700;}
+
+/* ═══════════════ COMPARE PAGE ═══════════════ */
+.cmp-page{padding:20px 28px;}
+.cmp-selectors{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;}
+.cmp-sel-box label{font-size:.62rem;font-weight:700;color:var(--text3);display:block;margin-bottom:5px;font-family:'Space Mono',monospace;letter-spacing:1px;text-transform:uppercase;}
+.cmp-sel-box select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Lexend',sans-serif;font-size:.77rem;outline:none;cursor:pointer;transition:border-color .2s;}
+.cmp-sel-box select:focus{border-color:var(--accent);}
+.cmp-chart-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+.cmp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+.cmp-c{background:var(--card);border-radius:11px;border:1px solid var(--border);padding:15px;border-top-width:3px;}
+.cmp-c-name{font-size:.82rem;font-weight:700;color:var(--text);margin-bottom:10px;line-height:1.3;}
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.cmp-stat{background:var(--bg3);border-radius:6px;padding:7px 8px;}
+.cmp-stat .k{font-size:.58rem;color:var(--text3);margin-bottom:2px;font-family:'Space Mono',monospace;}
+.cmp-stat .v{font-size:.77rem;font-weight:600;}
+
+/* ═══════════════ GROWTH CALC ═══════════════ */
+.calc-page{padding:20px 28px;}
+.calc-layout{display:grid;grid-template-columns:380px 1fr;gap:16px;}
+.calc-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;}
+.calc-title{font-family:'Space Mono',monospace;font-size:.75rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:16px;}
+.calc-field{margin-bottom:14px;}
+.calc-field label{display:flex;justify-content:space-between;font-size:.68rem;color:var(--text2);margin-bottom:6px;font-family:'Space Mono',monospace;}
+.calc-field label span{color:var(--accent);font-weight:700;}
+.calc-field select,.calc-field input[type=range]{width:100%;}
+.calc-field select{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text);font-family:'Lexend',sans-serif;font-size:.77rem;outline:none;cursor:pointer;}
+input[type=range]{accent-color:var(--accent);cursor:pointer;height:3px;}
+.result-boxes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;}
+.res-box{border-radius:9px;padding:13px;text-align:center;}
+.res-box .rl{font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;font-family:'Space Mono',monospace;}
+.res-box .rv{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;}
+.rbn{background:var(--bg3);border:1px solid var(--border);}
+.rbg{background:rgba(0,255,157,.08);border:1px solid rgba(0,255,157,.2);}
+.gain-box{background:linear-gradient(135deg,var(--glow),var(--glow2));border:1px solid var(--border);border-radius:9px;padding:14px;margin-top:8px;text-align:center;}
+.gain-box .gl{font-size:.58rem;color:var(--text3);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:4px;font-family:'Space Mono',monospace;}
+.gain-box .gv{font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:700;color:var(--accent);}
+
+/* ═══════════════ MAP PAGE ═══════════════ */
+.map-page{padding:20px 28px;}
+.map-filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;}
+.world-map-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px;}
+.map-svg-wrap{position:relative;border-radius:8px;overflow:hidden;background:var(--bg3);min-height:380px;display:flex;align-items:center;justify-content:center;}
+.map-countries-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.map-country-card{background:var(--card);border:1px solid var(--border);border-radius:9px;padding:13px;cursor:pointer;transition:all .18s;}
+.map-country-card:hover{border-color:var(--accent);box-shadow:0 0 14px var(--glow);}
+.mcc-name{font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:6px;}
+.mcc-pct{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;color:var(--accent);}
+.mcc-sub{font-size:.65rem;color:var(--text2);margin-top:2px;}
+.geo-bar-row{margin-bottom:8px;}
+.geo-label{display:flex;justify-content:space-between;margin-bottom:3px;font-size:.68rem;}
+.geo-track{background:var(--bg4);border-radius:3px;height:6px;overflow:hidden;}
+.geo-fill{height:100%;border-radius:3px;transition:width .8s ease;}
+
+/* Prediction badge */
+.pred-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:4px;font-family:'Space Mono',monospace;font-size:.68rem;font-weight:700;border:1px dashed;}
+.pred-pos{color:#a78bfa;border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.08);}
+.pred-neg{color:var(--red);border-color:rgba(255,77,109,.3);background:rgba(255,77,109,.06);}
+.pred-neu{color:var(--text3);border-color:var(--border);}
+
+.no-res{text-align:center;padding:60px 20px;color:var(--text3);}
+.no-res .ni{font-size:32px;margin-bottom:10px;}
+
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media(max-width:1100px){.dash-hero{grid-template-columns:repeat(2,1fr);}.picks5{grid-template-columns:repeat(3,1fr);}.dash-charts{grid-template-columns:1fr;}.calc-layout{grid-template-columns:1fr;}}
+@media(max-width:768px){.picks5{grid-template-columns:1fr 1fr;}.modal-panel{width:100%;}.cmp-selectors{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#" onclick="showPage('dashboard',this);return false;">
+    <div class="logo-badge">FA</div>
+    <div class="logo-name">Fund<span>Analyzer</span></div>
+  </a>
+  <nav>
+    <button class="nav-btn active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('allfunds',this)">All Funds</button>
+    <button class="nav-btn" onclick="showPage('compare',this)">Compare</button>
+    <button class="nav-btn" onclick="showPage('calc',this)">Growth Calculator</button>
+    <button class="nav-btn" onclick="showPage('map',this)">World Map</button>
+  </nav>
+  <div class="hdr-spacer"></div>
+  <div class="hdr-right">
+    <div class="live-dot-wrap"><div class="ldot"></div>LIVE</div>
+    <div class="hdr-date">MAR 17, 2026</div>
+    <button class="theme-btn" onclick="toggleTheme()" title="Toggle theme">
+      <span id="theme-ico">☀️</span>
+    </button>
+  </div>
+</header>
+
+<!-- LIVE MARKET TICKER -->
+<div id="live-ticker" style="display:none;">
+  <div class="ticker-inner" id="ticker-content"></div>
+</div>
+
+<!-- ═══ DASHBOARD PAGE ═══ -->
+<div class="page active" id="page-dashboard">
+  <div class="dash">
+    <!-- KPI -->
+    <div class="dash-hero">
+      <div class="kpi c1"><div class="kpi-label">Total Funds</div><div class="kpi-value">50</div><div class="kpi-sub">Equitable Life TFSA Plan</div></div>
+      <div class="kpi c2"><div class="kpi-label">BUY Rated</div><div class="kpi-value" id="d-buyn">—</div><div class="kpi-sub">⭐ Advisor recommended</div></div>
+      <div class="kpi c3" id="kpi-best" style="cursor:pointer;" onclick="openModalById('best')" title="Click for full details">
+        <div class="kpi-label">Best 2025 ↗ Click</div>
+        <div class="kpi-value" id="d-best" style="font-size:1.6rem;line-height:1;">—</div>
+        <div class="kpi-sub" id="d-bestN" style="font-size:.72rem;color:var(--text2);margin-top:6px;line-height:1.4;font-weight:400;white-space:normal;">—</div>
+      </div>
+      <div class="kpi c4" id="kpi-pred" style="cursor:pointer;" onclick="openModalById('pred')" title="Click for 2026 prediction details">
+        <div class="kpi-label">Best 2026 Prediction ↗</div>
+        <div class="kpi-value" id="d-pred" style="font-size:1.6rem;line-height:1;">—</div>
+        <div class="kpi-sub" id="d-predN" style="font-size:.72rem;color:var(--text2);margin-top:6px;line-height:1.4;font-weight:400;white-space:normal;">—</div>
+      </div>
+    </div>
+    <!-- TOP 5 PICKS -->
+    <div class="dash-picks-title">// TOP 5 TFSA RECOMMENDATIONS — CLICK FOR FULL DETAILS</div>
+    <div class="picks5" id="picks5"></div>
+    <!-- CHARTS -->
+    <div class="dash-charts">
+      <div class="chart-box clickable" title="Click a bar to filter funds by category"><div class="chart-box-title">2025 Returns by Category ↗ Click bar</div><div class="chart-box-sub">Average annual return per fund type — click to filter</div><div style="height:220px"><canvas id="dc-cat"></canvas></div></div>
+      <div class="chart-box clickable" title="Click a bar to open fund details"><div class="chart-box-title">Top 10 Performers — 2025 ↗ Click bar</div><div class="chart-box-sub">Highest returning funds this year — click for details</div><div style="height:220px"><canvas id="dc-top"></canvas></div></div>
+    </div>
+    <div class="dash-charts">
+      <div class="chart-box clickable" title="Click a bar to open fund details"><div class="chart-box-title">5-Year Average Return Leaders ↗ Click bar</div><div class="chart-box-sub">Best compounders 2021–2025 — click for details</div><div style="height:220px"><canvas id="dc-5y"></canvas></div></div>
+      <div class="chart-box clickable" title="Click to sort All Funds by MER (lowest first)"><div class="chart-box-title">MER Distribution ↗ Click</div><div class="chart-box-sub">Fund fee landscape — click to sort by cheapest</div><div style="height:220px"><canvas id="dc-mer"></canvas></div></div>
+    </div>
+    <div style="padding:8px 0;font-size:.62rem;color:var(--text3);font-family:'Space Mono',monospace;text-align:right;">📋 Data sourced from Equitable Life factsheets · Feb 28, 2026 · NAV as of Mar 16, 2026 · All returns after MER · Past performance ≠ future results</div>
+  </div>
+</div>
+
+<!-- ═══ ALL FUNDS PAGE ═══ -->
+<div class="page" id="page-allfunds">
+  <div class="funds-page">
+    <div class="filter-bar">
+      <label>SEARCH</label>
+      <div class="srch-wrap">
+        <input class="fsrch" type="text" id="f-search" placeholder="Fund name…" oninput="applyFilters()">
+        <span class="srch-ico">⌕</span>
+      </div>
+      <label>CATEGORY</label>
+      <select class="fsel" id="f-cat" onchange="applyFilters()">
+        <option value="">All Categories</option>
+        <option value="Global">🌍 Global Equity</option>
+        <option value="US">🇺🇸 US Equity</option>
+        <option value="Canadian">🇨🇦 Canadian Equity</option>
+        <option value="Bond">🏦 Fixed Income</option>
+        <option value="Balanced">⚖️ Balanced</option>
+      </select>
+      <label>RISK</label>
+      <select class="fsel" id="f-risk" onchange="applyFilters()">
+        <option value="">All Risk Levels</option>
+        <option value="Low">Low</option>
+        <option value="Low-Med">Low-Med</option>
+        <option value="Medium">Medium</option>
+        <option value="Med-High">Med-High</option>
+        <option value="High">High</option>
+        <option value="Very High">Very High</option>
+      </select>
+      <label>REC</label>
+      <select class="fsel" id="f-rec" onchange="applyFilters()">
+        <option value="">All</option>
+        <option value="buy">✅ BUY</option>
+        <option value="hold">🟡 HOLD</option>
+        <option value="watch">👁 WATCH</option>
+        <option value="avoid">❌ AVOID</option>
+      </select>
+      <label>SORT</label>
+      <select class="fsel" id="f-sort" onchange="applyFilters()">
+        <option value="r25">2025 Return ↓</option>
+        <option value="r24">2024 Return ↓</option>
+        <option value="p26">2026 Prediction ↓</option>
+        <option value="avg5">5yr Avg ↓</option>
+        <option value="mer">MER ↑</option>
+        <option value="nav">NAV/Unit ↓</option>
+        <option value="name">Name A→Z</option>
+        <option value="rec">Recommendation</option>
+      </select>
+      <button class="fbtn" id="btnStar" onclick="togStarFilter()">⭐ Starred</button>
+      <div class="filter-count" id="f-count">50 funds</div>
+    </div>
+    <div class="funds-table-wrap">
+      <div class="tbl-scr">
+        <table>
+          <thead><tr>
+            <th style="width:28px"></th>
+            <th onclick="sortBy('name')">Fund Name <span class="sa">↕</span></th>
+            <th onclick="sortBy('cat')">Category</th>
+            <th onclick="sortBy('mer')">MER% <span class="sa">↕</span></th>
+            <th onclick="sortBy('nav')">NAV/Unit</th>
+            <th onclick="sortBy('r25')">2025 <span class="sa">↕</span></th>
+            <th onclick="sortBy('r24')">2024 <span class="sa">↕</span></th>
+            <th onclick="sortBy('r23')">2023 <span class="sa">↕</span></th>
+            <th onclick="sortBy('r22')">2022 <span class="sa">↕</span></th>
+            <th onclick="sortBy('r21')">2021 <span class="sa">↕</span></th>
+            <th>Trend</th>
+            <th onclick="sortBy('p26')">2026 Pred. <span class="sa">↕</span></th>
+            <th onclick="sortBy('rec')">Advisor</th>
+          </tr></thead>
+            <th onclick="sortBy('rec')">Advisor</th>
+          </tr></thead>
+          <tbody id="funds-tbody"></tbody>
+        </table>
+      </div>
+      <div class="no-res" id="no-res" style="display:none"><div class="ni">⌕</div><p>No funds match your filters.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COMPARE PAGE ═══ -->
+<div class="page" id="page-compare">
+  <div class="cmp-page">
+    <div class="cmp-selectors">
+      <div class="cmp-sel-box"><label>Fund A</label><select id="cmpA" onchange="renderCmp()"></select></div>
+      <div class="cmp-sel-box"><label>Fund B</label><select id="cmpB" onchange="renderCmp()"></select></div>
+      <div class="cmp-sel-box"><label>Fund C (Optional)</label><select id="cmpC" onchange="renderCmp()"><option value="">— None —</option></select></div>
+    </div>
+    <div class="cmp-chart-box">
+      <div style="font-family:'Space Mono',monospace;font-size:.68rem;color:var(--text2);margin-bottom:12px;letter-spacing:1px;">YEAR-BY-YEAR RETURN COMPARISON · 2016–2025</div>
+      <div style="height:260px"><canvas id="ch-cmp"></canvas></div>
+    </div>
+    <div class="cmp-cards" id="cmp-cards"></div>
+  </div>
+</div>
+
+<!-- ═══ GROWTH CALC PAGE ═══ -->
+<div class="page" id="page-calc">
+  <div class="calc-page">
+    <div class="calc-layout">
+      <div class="calc-panel">
+        <div class="calc-title">// TFSA GROWTH CALCULATOR</div>
+        <div class="calc-field"><label>Select Fund</label><select id="calc-fund" onchange="renderCalc()"></select></div>
+        <div class="calc-field"><label>Monthly Contribution <span id="cv-c">$100</span></label><input type="range" id="rC" min="25" max="2000" step="25" value="100" oninput="document.getElementById('cv-c').textContent='$'+this.value;renderCalc()"></div>
+        <div class="calc-field"><label>Time Horizon <span id="cv-y">10 years</span></label><input type="range" id="rY" min="1" max="35" step="1" value="10" oninput="document.getElementById('cv-y').textContent=this.value+' years';renderCalc()"></div>
+        <div class="calc-field"><label>Expected Annual Return <span id="cv-r">9.0%</span></label><input type="range" id="rR" min="1" max="20" step="0.5" value="9" oninput="document.getElementById('cv-r').textContent=this.value+'%';renderCalc()"></div>
+        <div class="result-boxes">
+          <div class="res-box rbn"><div class="rl">You Invest</div><div class="rv" id="cv-t">—</div></div>
+          <div class="res-box rbg"><div class="rl">Portfolio Value</div><div class="rv" style="color:var(--accent3)" id="cv-v">—</div></div>
+        </div>
+        <div class="gain-box"><div class="gl">Tax-Free TFSA Gain</div><div class="gv" id="cv-g">—</div></div>
+      </div>
+      <div>
+        <div class="calc-panel" style="margin-bottom:14px">
+          <div class="calc-title">// GROWTH PROJECTION</div>
+          <div style="height:240px"><canvas id="ch-calc"></canvas></div>
+        </div>
+        <div id="calc-tbl"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAP PAGE ═══ -->
+<div class="page" id="page-map">
+  <div class="map-page">
+    <div class="map-filter-bar">
+      <label style="font-family:'Space Mono',monospace;font-size:.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);">FILTER BY FUND</label>
+      <select class="fsel" id="map-fund" onchange="renderMap()" style="min-width:280px"></select>
+      <label style="font-family:'Space Mono',monospace;font-size:.62rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);">VIEW</label>
+      <select class="fsel" id="map-view" onchange="renderMap()">
+        <option value="geo">Geographic Allocation</option>
+        <option value="sector">Sector Allocation</option>
+        <option value="asset">Asset Allocation</option>
+        <option value="holdings">Top Holdings</option>
+      </select>
+    </div>
+    <div id="map-content"></div>
+  </div>
+</div>
+
+<!-- MODAL OVERLAY -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal-panel" id="modal-panel">
+    <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// FUND DATA — EXACT FROM SCREENSHOTS + PDF
+// ═══════════════════════════════════════════════════════
+const F = [
+  // nm, cat, mer, eq, cash, fundCat, r25,r24,r23,r22,r21,r20,r19,r18,r17,r16, rec, risk, note
+  // + geo, sector, assets, holdings, compoundRet
+  {nm:"Equitable Balanced",cat:"Balanced",mer:2.45,eq:57.10,cash:41.80,fc:"Global Neutral Balanced",r25:10.33,r24:11.28,r23:8.54,r22:-11.51,r21:9.29,r20:2.7,r19:12.48,r18:-4.97,r17:5.68,r16:3.4,rec:"hold",risk:"Low-Med",
+   geo:{"North America":86.3,"Europe":8.2,"Asia":3.9,"Latin America":0.3,"Africa & Middle East":0.2,"Other":1.1},
+   sector:{"Fixed Income":51.8,"Financial Services":14.3,"Technology":13.3,"Basic Materials":5.9,"Consumer Services":4.0,"Energy":3.8,"Consumer Goods":3.5,"Healthcare":3.4},
+   assets:{"Canadian Bonds - Funds":39.8,"US Equity":24.7,"Canadian Equity":20.1,"International Equity":12.3,"Cash":1.3,"Commodities":1.1,"Income Trust":0.7},
+   holdings:[{n:"Active Canadian Bond Int Seg",p:39.83},{n:"BMO S&P 500 Index ETF (ZSP)",p:18.33},{n:"BMO MSCI EAFE Hdg to CAD ETF (ZDM)",p:11.31},{n:"BMO S&P/TSX Capped Comp ETF (ZCN)",p:8.76},{n:"Invesco QQQ ETF (QQQ)",p:6.86},{n:"TD Q Canadian Dividend ETF (TQCD)",p:6.74},{n:"Global X Eq Wt Cdn Bks ETF (HBNK)",p:4.28},{n:"iShares S&P/TSX Global Gold ETF (XGD)",p:1.54},{n:"Cash and Cash Equivalents",p:1.27},{n:"CI Gold Bullion ETF C$ Hedged (VALT)",p:1.08}],
+   note:"Steady balanced fund consistent across market cycles. Q2 quartile in 2025. Good for moderate risk investors. 10yr annualized 5.08%."},
+
+  {nm:"Equitable Bond",cat:"Bond",mer:2.11,eq:0,cash:100,fc:"Canadian Fixed Income",r25:0.75,r24:2.47,r23:4.88,r22:-13.38,r21:-4.01,r20:7.09,r19:5.35,r18:-1.17,r17:0.6,r16:0.41,rec:"avoid",risk:"Low",
+   geo:{"North America":100},
+   sector:{"Fixed Income":98.7,"Cash & Equivalents":1.3},
+   assets:{"Canadian Government Bonds":58.0,"Canadian Corporate Bonds":40.7,"Cash":1.3},
+   holdings:[{n:"Canada Govt 3.00% Jun-2034",p:3.71},{n:"Canada Govt 1.50% Jun-2031",p:3.70},{n:"Canada Govt 3.25% Dec-2034",p:3.29},{n:"Canada Govt 1.25% Jun-2030",p:3.24},{n:"Quebec Province 5.75% Dec-2036",p:2.75},{n:"Canada Govt 3.25% Sep-2028",p:2.65},{n:"Quebec Province 6.25% Jun-2032",p:2.41},{n:"Canada Govt 2.75% Dec-2055",p:2.18},{n:"Canada Housing Trust 3.55%",p:2.18},{n:"Canada Govt 3.25% Dec-2035",p:2.11}],
+   note:"Bond funds suffer heavily in rising rate environments. 10yr annualized only 0.35%. Q4 quartile in 2025. Poor long-term TFSA growth vehicle."},
+
+  {nm:"Equitable Brandes Global Equity",cat:"Global",mer:2.83,eq:98,cash:2,fc:"Global Equity",r25:25.44,r24:19.74,r23:16.54,r22:-1.04,r21:18.52,r20:-2.41,r19:10.67,r18:-4.74,r17:8.48,r16:2.35,rec:"buy",risk:"Medium",
+   geo:{"North America":42.4,"Europe":35.7,"Asia":15.1,"Latin America":6.8},
+   sector:{Healthcare:29.5,Technology:19.2,"Financial Services":16.1,"Consumer Services":9.8,"Consumer Goods":9.7,Energy:6.0,"Industrial Goods":5.8,"Industrial Services":3.9},
+   assets:{"International Equity":57.6,"US Equity":39.2,"Cash":2.0,"Canadian Equity":1.2},
+   holdings:[{n:"GlaxoSmithKline PLC",p:2.87},{n:"TotalEnergies SE",p:2.54},{n:"Sanofi SA",p:2.38},{n:"Samsung Electronics - Pfd",p:2.35},{n:"Erste Group Bank AG",p:2.30},{n:"Shell PLC - ADR",p:2.27},{n:"Taiwan Semiconductor Mfg",p:2.22},{n:"Textron Inc",p:2.20},{n:"Alibaba Group Holding",p:2.07},{n:"Cash",p:2.02}],
+   note:"Strong value-focused global manager. Resilient in 2022 (-1% only). Risk rated MEDIUM by Equitable. 10yr annualized 10.78%. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Brandes International Equity",cat:"Global",mer:2.82,eq:96.3,cash:3.7,fc:"International Equity",r25:30.52,r24:12.71,r23:25.51,r22:-3.55,r21:9.7,r20:-5.22,r19:6.74,r18:-4.04,r17:6.21,r16:2.18,rec:"buy",risk:"Medium",
+   geo:{Europe:56.2,Asia:25.4,"Latin America":13.5,"North America":3.7,"Africa & Middle East":1.2},
+   sector:{"Consumer Goods":32.9,Healthcare:16.8,"Consumer Services":13.6,Technology:12.7,"Financial Services":7.6,"Industrial Goods":7.2,Energy:5.5,"Cash":3.7},
+   assets:{"International Equity":96.3,"Cash":3.7},
+   holdings:[{n:"Cash",p:3.73},{n:"Sanofi SA",p:3.11},{n:"Petrobras - Pfd",p:2.45},{n:"Takeda Pharmaceutical",p:2.41},{n:"Wal Mart de Mexico",p:2.25},{n:"Alibaba Group Holding",p:2.22},{n:"SAP SE",p:2.18},{n:"Carrefour SA",p:2.18},{n:"GlaxoSmithKline PLC",p:2.15},{n:"Heineken Holding NV",p:2.05}],
+   note:"Best international performer. 30.52% in 2025 driven by European/Asian recovery. Risk rated MEDIUM. 10yr annualized 9.54%. Strong value mandate. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Brandes U.S. Equity",cat:"US",mer:2.69,eq:99.6,cash:1.4,fc:"U.S. Equity",r25:9.49,r24:23.02,r23:7.16,r22:2.19,r21:25.3,r20:2.69,r19:15.88,r18:-0.88,r17:5.53,r16:13.4,rec:"hold",risk:"Medium",
+   geo:{"North America":90.6,"Europe":6.5,"Latin America":1.9,"Asia":1.0},
+   sector:{Healthcare:29.8,"Financial Services":18.4,Technology:13.5,"Consumer Goods":8.7,"Industrial Services":7.7,Energy:7.4,"Industrial Goods":7.3,"Consumer Services":7.2},
+   assets:{"US Equity":87.5,"International Equity":9.4,"Canadian Equity":1.7,"Cash":1.4},
+   holdings:[{n:"Merck & Co Inc",p:2.76},{n:"Textron Inc",p:2.60},{n:"Citigroup Inc",p:2.46},{n:"FedEx Corp",p:2.39},{n:"Chevron Corp",p:2.36},{n:"Cigna Corp",p:2.24},{n:"Pfizer Inc",p:2.21},{n:"Becton Dickinson and Co",p:2.20},{n:"Schlumberger NV",p:2.19},{n:"Bank of America Corp",p:2.08}],
+   note:"Value-oriented US fund with healthcare & financials tilt. Risk rated MEDIUM. 10yr annualized 11.81%. +2.19% in 2022 shows value resilience. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Canoe Asset Allocation Portfolio",cat:"Balanced",mer:2.63,eq:76,cash:24,fc:"Tactical Balanced",r25:7.54,r24:14.36,r23:4.07,r22:0.32,r21:28.16,r20:6.14,r19:11.01,r18:-5.28,r17:3.98,r16:12.52,rec:"hold",risk:"Low-Med",
+   geo:{"North America":96.0,"Europe":3.4,"Latin America":0.5,"Other":0.1},
+   sector:{Energy:28.9,"Fixed Income":18.7,"Financial Services":13.3,"Industrial Services":10.5,"Consumer Services":8.0,"Cash":7.1,Healthcare:7.1,"Industrial Goods":6.4},
+   assets:{"Canadian Equity":45.4,"US Equity":27.2,"Canadian Corp Bonds":8.9,"Cash":7.1,"Foreign Govt Bonds":4.4,"International Equity":3.4,"Foreign Corp Bonds":2.2,"Foreign Bonds - Other":1.4},
+   holdings:[{n:"Canoe Bond Advantage Fund I",p:14.21},{n:"Canoe Global Income Fund I",p:4.24},{n:"Canoe Unconstrained Bond Fund I",p:4.17},{n:"Tourmaline Oil Corp",p:3.79},{n:"Canadian National Railway",p:3.65},{n:"Canadian Natural Resources",p:2.61},{n:"Wells Fargo & Co",p:2.60},{n:"Restaurant Brands Intl",p:2.37},{n:"Prairiesky Royalty Ltd",p:2.10},{n:"BMO Montreal TD 2.05% Mar-2026",p:2.09}],
+   note:"Multi-asset fund. Positive in 2022 (+0.32%). Risk rated LOW-TO-MEDIUM. 10yr annualized 8.88%. Good tactical allocation across asset classes. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Canoe Enhanced Income",cat:"Balanced",mer:2.58,eq:27.9,cash:69.3,fc:"Canadian Fixed Income Balanced",r25:5.14,r24:1.01,r23:0.93,r22:5.41,r21:2.72,r20:4.38,r19:-5.63,r18:1.74,r17:10.17,r16:4.21,rec:"avoid",risk:"Low",
+   geo:{"North America":97.9,"Europe":1.0,"Latin America":1.0,"Other":0.1},
+   sector:{"Fixed Income":55.9,"Cash":19.1,"Financial Services":6.7,Energy:6.2,"Industrial Services":3.5,"Consumer Services":3.0,"Industrial Goods":3.0,Healthcare:2.6},
+   assets:{"Canadian Corp Bonds":30.2,"Cash":19.1,"Canadian Equity":15.6,"US Equity":12.3,"Foreign Govt Bonds":12.1,"Foreign Corp Bonds":4.8,"Foreign Bonds - Other":3.1,"Mortgages":2.8},
+   holdings:[{n:"Canoe Bond Advantage Fund I",p:44.09},{n:"Canoe Unconstrained Bond Fund I",p:9.71},{n:"Canoe Global Income Fund I",p:8.47},{n:"Canadian Treasury Bill",p:4.77},{n:"BMO Montreal TD 2.05% Mar-2026",p:4.13},{n:"Tourmaline Oil Corp",p:1.48},{n:"Canadian National Railway",p:1.41},{n:"Canadian Natural Resources",p:1.11},{n:"Wells Fargo & Co",p:1.07},{n:"Restaurant Brands Intl",p:0.92}],
+   note:"Heavy fixed income bias. Note: positive +5.41% in 2022 (unusual). Risk rated LOW. 10yr annualized 3.23%. Returns barely exceed inflation. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Canoe Equity Portfolio",cat:"Canadian",mer:2.95,eq:97.4,cash:2.6,fc:"Canadian Focused Equity",r25:8.6,r24:19.54,r23:3.55,r22:4.21,r21:39.39,r20:6.37,r19:15.61,r18:-8.34,r17:4.07,r16:18.84,rec:"hold",risk:"Medium",
+   geo:{"North America":95.5,"Europe":4.5},
+   sector:{Energy:30.8,"Financial Services":17.7,"Industrial Services":13.7,"Consumer Services":10.4,Healthcare:9.1,"Industrial Goods":8.4,"Basic Materials":5.8,Technology:4.1},
+   assets:{"Canadian Equity":57.3,"US Equity":35.6,"International Equity":4.5,"Cash":2.6},
+   holdings:[{n:"Tourmaline Oil Corp",p:4.91},{n:"Canadian National Railway",p:4.73},{n:"Wells Fargo & Co",p:3.47},{n:"Canadian Natural Resources",p:3.38},{n:"Restaurant Brands Intl",p:3.06},{n:"Prairiesky Royalty Ltd",p:2.73},{n:"Topaz Energy Corp",p:2.70},{n:"BMO Montreal TD 2.05% Mar-2026",p:2.67},{n:"Cenovus Energy Inc",p:2.65},{n:"CVS Health Corp",p:2.62}],
+   note:"Spectacular 2021 (+39.39%) but inconsistent. +4.21% in 2022 shows resilience. Risk rated MEDIUM. 10yr annualized 11.73%. Energy-heavy Canadian fund. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Dynamic Equity Income",cat:"Canadian",mer:2.81,eq:93.2,cash:6.6,fc:"Canadian Dividend & Income Equity",r25:13.42,r24:13.42,r23:4.88,r22:-5.12,r21:20.81,r20:0.54,r19:19.91,r18:-5.57,r17:null,r16:null,rec:"hold",risk:"Low-Med",
+   geo:{"North America":98.3,"Latin America":1.5,"Multi-National":0.2},
+   sector:{"Financial Services":47.5,Energy:13.4,"Consumer Services":10.3,"Industrial Services":8.9,Technology:6.4,"Basic Materials":5.3,"Real Estate":4.4,Healthcare:3.8},
+   assets:{"Canadian Equity":75.7,"US Equity":17.5,"Income Trust Units":6.0,"Cash":0.6,"Other":0.2},
+   holdings:[{n:"Royal Bank of Canada",p:8.05},{n:"Toronto-Dominion Bank",p:6.19},{n:"Enbridge Inc",p:3.91},{n:"Bank of Nova Scotia",p:3.60},{n:"Canadian Pacific Kansas City",p:3.41},{n:"Brookfield Corp Cl A",p:3.31},{n:"Canadian Natural Resources",p:3.06},{n:"Suncor Energy Inc",p:2.96},{n:"Intact Financial Corp",p:2.94},{n:"Microsoft Corp",p:2.90}],
+   note:"Consistent double-digit returns in bull years. Risk rated LOW-TO-MEDIUM. 5yr annualized 9.84%. Q4 quartile in 2025 vs category. Heavy financials exposure at 47.5%."},
+
+  {nm:"Equitable Dynamic Global Real Estate",cat:"Global",mer:2.6,eq:65.3,cash:33.4,fc:"Real Estate Equity",r25:3.06,r24:3.61,r23:5.49,r22:-19.16,r21:30.26,r20:-3.8,r19:19.04,r18:-0.26,r17:5.42,r16:3.22,rec:"avoid",risk:"Medium",
+   geo:{"North America":83.2,"Europe":10.7,"Asia":4.8,"Multi-National":1.3},
+   sector:{"Real Estate":86.4,Healthcare:10.2,"Mutual Fund":1.3,"Industrial Services":1.0,"Cash":0.7,Technology:0.4},
+   assets:{"US Equity":42.3,"Income Trust Units":32.7,"International Equity":14.2,"Canadian Equity":8.8,"Cash":0.7,"Other":1.3},
+   holdings:[{n:"Chartwell Retirement Residences",p:5.45},{n:"Ventas Inc",p:5.18},{n:"Prologis Inc",p:5.13},{n:"Equinix Inc",p:3.97},{n:"Granite REIT - Units",p:3.79},{n:"Sienna Senior Living Inc",p:3.73},{n:"Flagship Communities REIT",p:3.34},{n:"AvalonBay Communities Inc",p:3.02},{n:"Public Storage",p:3.00},{n:"First Capital REIT",p:2.90}],
+   note:"-19.16% in 2022 shows real estate vulnerability to rate hikes. Risk rated MEDIUM. 5yr annualized 5.08%. Q4 quartile in 2025. Avoid for long-term TFSA growth. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Dynamic U.S. Strategic Yield",cat:"US",mer:3.01,eq:75,cash:25,fc:"Global Equity Balanced",r25:0.23,r24:14.43,r23:6.35,r22:-6.77,r21:15.64,r20:0.6,r19:14.78,r18:-0.64,r17:null,r16:null,rec:"avoid",risk:"Low-Med",
+   geo:{"North America":94.3,"Europe":5.7},
+   sector:{Technology:36.5,"Fixed Income":23.4,Healthcare:9.5,"Financial Services":9.0,"Consumer Services":8.5,"Industrial Goods":4.5,"Consumer Goods":4.4,"Real Estate":4.2},
+   assets:{"US Equity":69.3,"Foreign Govt Bonds":14.9,"Foreign Corp Bonds":6.0,"International Equity":5.7,"Canadian Corp Bonds":2.4,"Cash":1.1,"Income Trust":0.4,"Canadian Govt Bonds":0.2},
+   holdings:[{n:"US Treasury 4.00% Jul-2030",p:5.69},{n:"Microsoft Corp",p:4.97},{n:"US Treasury 4.25% Nov-2034",p:3.87},{n:"Amazon.com Inc",p:3.57},{n:"Apple Inc",p:3.41},{n:"Alphabet Inc Cl A",p:2.99},{n:"JPMorgan Chase & Co",p:2.98},{n:"Cisco Systems Inc",p:2.95},{n:"US Treasury 4.13% Jul-2031",p:2.55},{n:"Meta Platforms Inc Cl A",p:2.32}],
+   note:"Only 0.23% in 2025 — severely disappointing. High MER 3.01% (highest in list). Risk rated LOW-TO-MEDIUM. 5yr annualized 6.09%. Q4 quartile across all periods. Avoid."},
+
+  {nm:"Equitable Dynamic Value Balanced",cat:"Balanced",mer:2.93,eq:69.2,cash:30.8,fc:"Canadian Equity Balanced",r25:11.16,r24:10.87,r23:8.31,r22:-7.13,r21:14.79,r20:5.79,r19:10.54,r18:-5.5,r17:-0.74,r16:4.9,rec:"hold",risk:"Low-Med",
+   geo:{"North America":100},
+   sector:{"Financial Services":35.9,"Fixed Income":27.0,Energy:10.4,"Consumer Services":7.1,"Industrial Services":6.6,Technology:5.0,"Basic Materials":4.6,"Cash":3.4},
+   assets:{"Canadian Equity":64.0,"Canadian Govt Bonds":15.0,"Canadian Corp Bonds":11.3,"US Equity":5.2,"Cash":3.4,"Foreign Govt Bonds":0.7,"Income Trust":0.4},
+   holdings:[{n:"1832 AM Inv Grade Cdn Corp Bond Pool I",p:9.34},{n:"Power Corp of Canada",p:5.73},{n:"Onex Corp",p:4.71},{n:"Bank of Nova Scotia",p:3.76},{n:"Manulife Financial Corp",p:3.62},{n:"Royal Bank of Canada",p:3.44},{n:"Toronto-Dominion Bank",p:3.08},{n:"Enbridge Inc",p:2.88},{n:"Prairiesky Royalty Ltd",p:2.79},{n:"Cash & Cash Equivalents",p:2.71}],
+   note:"Value-oriented Canadian balanced. Risk rated LOW-TO-MEDIUM. 10yr annualized 5.62%. Steady returns. Q2 quartile in 2025. Reasonable drawdowns for moderate investors."},
+
+  {nm:"Equitable Equity",cat:"Canadian",mer:2.40,eq:96,cash:4,fc:"Global Equity",r25:null,r24:null,r23:null,r22:null,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Medium",
+   geo:{"North America":87.6,"Europe":9.4,"Asia":2.2,"Latin America":0.6,"Africa & Middle East":0.2},
+   sector:{Technology:39.7,"Financial Services":23.2,"Basic Materials":10.3,"Consumer Services":6.9,Energy:6.6,"Consumer Goods":4.6,Healthcare:4.5,"Exchange Traded Fund":4.2},
+   assets:{"US Equity":45.0,"Canadian Equity":39.1,"International Equity":11.9,"Cash":2.7,"Income Trust Units":1.2,"Foreign Bonds - Other":0.1},
+   holdings:[{n:"BMO S&P 500 Index ETF (ZSP)",p:31.59},{n:"BMO S&P/TSX Capped Comp ETF (ZCN)",p:18.53},{n:"Invesco QQQ ETF (QQQ)",p:14.60},{n:"TD Q Canadian Dividend ETF (TQCD)",p:12.39},{n:"Global X Eq Wt Cdn Bks ETF (HBNK)",p:7.87},{n:"BMO MSCI EAFE Hdg to CAD ETF (ZDM)",p:5.81},{n:"Franklin Intl Equity Index ETF (FLUR)",p:4.18},{n:"Cash & Cash Equivalents",p:2.55},{n:"iShares S&P/TSX Global Gold ETF (XGD)",p:2.48}],
+   note:"New ETF-based equity fund (inception Nov 2025). No calendar return data yet. Risk rated MEDIUM. MER 2.40% (competitive). Diversified Canadian/US/International ETF strategy. Monitor for track record."},
+
+  {nm:"Equitable Fidelity® Climate Leadership Balanced",cat:"Balanced",mer:2.91,eq:50.6,cash:49.4,fc:"Global Neutral Balanced",r25:10.73,r24:10.79,r23:16.23,r22:-17.68,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Low-Med",
+   geo:{"North America":70.9,"Europe":26.0,"Asia":1.4,"Latin America":1.0,"Africa & Middle East":0.2,"Multi-National":0.1,"Other":0.4},
+   sector:{"Fixed Income":41.8,"Industrial Goods":18.2,"Cash":9.3,Technology:8.4,"Basic Materials":7.9,"Real Estate":5.4,"Industrial Services":4.8,"Consumer Services":4.2},
+   assets:{"Foreign Corp Bonds":31.3,"US Equity":18.4,"Canadian Equity":17.5,"International Equity":14.7,"Cash":9.3,"Foreign Govt Bonds":7.4,"Income Trust":0.8,"Canadian Govt Bonds":0.6},
+   holdings:[{n:"Fidelity US Money Market Trust O",p:7.03},{n:"US 10YR Ultra Fut MAR26",p:5.72},{n:"US 5YR Note (CBT) MAR26",p:3.34},{n:"Teledyne Technologies Inc",p:2.72},{n:"Westinghouse Air Brake Techs",p:2.44},{n:"US 2YR Note (CBT) MAR26",p:2.44},{n:"Sulzer AG Cl N",p:2.34},{n:"Sandvik AB",p:2.24},{n:"Epiroc AB Cl B",p:2.15},{n:"Computer Modelling Group Ltd",p:2.07}],
+   note:"ESG climate balanced fund. Q1 quartile in 2025 & 2023. Risk rated LOW-TO-MEDIUM. 3yr annualized 13.88%. -17.68% in 2022 is a concern. Limited history since Aug 2022."},
+
+  {nm:"Equitable Fidelity® Dividend",cat:"Canadian",mer:2.8,eq:88.7,cash:11.3,fc:"Canadian Dividend & Income Equity",r25:17.18,r24:15.46,r23:5.19,r22:-2.45,r21:27.76,r20:4.4,r19:12.99,r18:-3.74,r17:1.21,r16:10.44,rec:"buy",risk:"Medium",
+   geo:{"North America":96.0,"Latin America":2.2,"Europe":1.8},
+   sector:{"Financial Services":38.8,Energy:14.2,"Basic Materials":13.5,Utilities:7.4,"Industrial Services":7.2,"Real Estate":7.1,"Cash":7.0,"Consumer Services":4.8},
+   assets:{"Canadian Equity":80.5,"Cash":7.0,"US Equity":6.4,"Income Trust Units":4.3,"International Equity":1.8},
+   holdings:[{n:"Fidelity Dividend Fund Series A",p:97.71},{n:"Cash & Cash Equivalents",p:2.29}],
+   note:"One of best Canadian active funds. Only -2.45% in 2022. Risk rated MEDIUM. 10yr annualized 9.38%. 17.18% in 2025. Consistent double-digit returns in bull years. Simulated returns — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Fidelity® Global Equity+ Balanced",cat:"Balanced",mer:2.76,eq:53,cash:47,fc:"Global Neutral Balanced",r25:10.59,r24:null,r23:null,r22:null,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Low-Med",
+   geo:{"North America":83.3,"Europe":9.4,"Asia":3.8,"Latin America":2.1,"Africa & Middle East":0.9,"Other":0.5},
+   sector:{"Fixed Income":51.8,Technology:14.6,"Cash":9.4,"Consumer Services":6.3,"Consumer Goods":5.8,"Basic Materials":5.2,"Industrial Goods":3.6,"Financial Services":3.3},
+   assets:{"US Equity":22.8,"Foreign Govt Bonds":20.0,"Canadian Equity":19.8,"Foreign Corp Bonds":17.2,"International Equity":10.4,"Cash":9.4,"Canadian Corp Bonds":0.3,"Income Trust":0.1},
+   holdings:[{n:"Fidelity Global Equity+ Balanced Fund Series O",p:97.24},{n:"Cash & Cash Equivalents",p:2.76}],
+   note:"Very new fund (inception Nov 2025) — single year of data only (10.59% in 2025). Risk rated LOW-TO-MEDIUM. Insufficient history. Monitor for track record."},
+
+  {nm:"Equitable Fidelity® Global Innovators",cat:"Global",mer:2.89,eq:99.6,cash:0.4,fc:"Global Equity",r25:19.16,r24:57.16,r23:43.53,r22:-29.88,r21:2.31,r20:91.91,r19:38.96,r18:-6.25,r17:null,r16:null,rec:"watch",risk:"High",
+   geo:{"North America":80.9,"Asia":11.4,"Europe":5.7,"Africa & Middle East":1.1,"Other":0.9},
+   sector:{Technology:63.8,"Consumer Goods":7.6,"Basic Materials":6.7,"Consumer Services":6.6,Healthcare:5.3,Energy:2.1,"Financial Services":1.2,"Other":6.7},
+   assets:{"US Equity":69.6,"International Equity":19.2,"Canadian Equity":10.8,"Cash":0.4},
+   holdings:[{n:"Taiwan Semiconductor - ADR",p:6.66},{n:"Alphabet Inc Cl A",p:6.23},{n:"Alphabet Inc Cl C",p:6.19},{n:"Microsoft Corp",p:5.45},{n:"NVIDIA Corp",p:5.38},{n:"Applovin Corp Cl A",p:4.39},{n:"Tesla Inc",p:4.10},{n:"Amazon.com Inc",p:3.36},{n:"Roblox Corp Cl A",p:3.29},{n:"Agnico Eagle Mines Ltd",p:3.06}],
+   note:"Extraordinary upside (91.91% in 2020, 43.53% in 2023, 57.16% in 2024) but brutal -29.88% in 2022. Risk rated HIGH. 19.16% in 2025. 3yr annualized 35.65%. Very high risk — only for aggressive investors."},
+
+  {nm:"Equitable Fidelity® Special Situations",cat:"Global",mer:3.05,eq:99,cash:1,fc:"Canadian Focused Equity",r25:31.17,r24:30.45,r23:20.41,r22:-16.2,r21:11.33,r20:-3.82,r19:8.02,r18:-18.16,r17:15.05,r16:0.28,rec:"buy",risk:"Med-High",
+   geo:{"North America":87.8,"Asia":6.3,"Europe":3.7,"Africa & Middle East":0.9,"Other":1.3},
+   sector:{"Basic Materials":39.2,Technology:24.3,Energy:9.6,"Consumer Services":6.8,"Consumer Goods":5.2,"Industrial Goods":5.2,"Industrial Services":4.3,"Other":5.4},
+   assets:{"Canadian Equity":62.9,"US Equity":23.9,"International Equity":12.2,"Foreign Corp Bonds":0.6,"Cash":0.4},
+   holdings:[{n:"Agnico Eagle Mines Ltd",p:5.18},{n:"ARC Resources Ltd",p:4.08},{n:"Canadian Natural Resources",p:4.02},{n:"Ero Copper Corp",p:3.21},{n:"Dollarama Inc",p:2.75},{n:"Pan American Silver Corp",p:2.67},{n:"Applovin Corp Cl A",p:2.58},{n:"Bombardier Inc Cl B",p:2.53},{n:"TFI International Inc",p:2.35},{n:"Taiwan Semiconductor - ADR",p:2.13}],
+   note:"⭐ Best 2025 (31.17%). Two consecutive 30%+ years. Risk rated MED-HIGH. 10yr annualized 9.28%. 1yr annualized 49.57%. Special situations/materials mandate delivers outsized returns."},
+
+  {nm:"Equitable Fidelity® Tactical High Income",cat:"Balanced",mer:2.82,eq:51.4,cash:48.6,fc:"Tactical Balanced",r25:10.09,r24:16.46,r23:7.13,r22:-8.6,r21:13.59,r20:11.31,r19:14.49,r18:2.9,r17:-3.0,r16:5.38,rec:"hold",risk:"Low-Med",
+   geo:{"North America":91.0,"Latin America":4.7,"Europe":4.2,"Other":0.1},
+   sector:{"Fixed Income":57.4,Technology:12.3,Energy:7.7,Healthcare:7.5,"Cash":4.4,Utilities:3.7,"Financial Services":3.6,"Consumer Services":3.4},
+   assets:{"US Equity":38.9,"Foreign Corp Bonds":22.9,"Foreign Govt Bonds":20.7,"Canadian Equity":6.3,"International Equity":6.2,"Cash":4.4,"Canadian Corp Bonds":0.6},
+   holdings:[{n:"Fidelity Tactical High Income Fund Series O",p:98.19},{n:"Cash & Cash Equivalents",p:1.81}],
+   note:"Tactical income fund. Risk rated LOW-TO-MEDIUM. 10yr annualized 7.85%. +2.90% in 2018 shows resilience. Consistent positive returns across all time periods. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Fidelity® U.S. Focused Stock",cat:"US",mer:2.84,eq:99.3,cash:0.7,fc:"U.S. Equity",r25:6.86,r24:44.2,r23:23.2,r22:-21.17,r21:23.49,r20:27.72,r19:22.47,r18:12.19,r17:21.12,r16:-2.04,rec:"hold",risk:"Medium",
+   geo:{"North America":92.2,"Asia":4.2,"Europe":3.6},
+   sector:{Technology:54.3,Healthcare:9.4,"Consumer Goods":9.1,"Financial Services":8.2,"Consumer Services":7.7,"Industrial Goods":7.6,Utilities:1.9,Energy:1.8},
+   assets:{"US Equity":87.6,"International Equity":7.8,"Canadian Equity":3.9,"Cash":0.7},
+   holdings:[{n:"NVIDIA Corp",p:9.28},{n:"Alphabet Inc Cl A",p:9.09},{n:"Amazon.com Inc",p:6.64},{n:"Microsoft Corp",p:6.09},{n:"Apple Inc",p:5.57},{n:"Eli Lilly and Co",p:5.30},{n:"Bank of New York Mellon",p:4.97},{n:"Taiwan Semiconductor - ADR",p:4.22},{n:"Tempur Sealy International",p:3.49},{n:"Western Digital Corp",p:3.45}],
+   note:"Spectacular 44.20% in 2024 then only 6.86% in 2025. Risk rated MEDIUM. 10yr annualized 15.77%. 3yr annualized 23.77%. Tech-heavy concentration. Volatile — not reliable as core holding. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Fiera Canadian Equity",cat:"Canadian",mer:2.79,eq:98.5,cash:1.5,fc:"Canadian Equity",r25:8.95,r24:17.09,r23:12.41,r22:-2.57,r21:19.13,r20:5.26,r19:20.2,r18:-5.0,r17:5.18,r16:14.44,rec:"hold",risk:"Medium",
+   geo:{"North America":100},
+   sector:{"Financial Services":27.8,"Consumer Services":22.3,"Industrial Services":19.3,Technology:10.2,Telecommunications:10.2,"Industrial Goods":4.8,"Basic Materials":3.5,"Real Estate":1.9},
+   assets:{"Canadian Equity":98.5,"Cash":1.5},
+   holdings:[{n:"Royal Bank of Canada",p:6.10},{n:"Quebecor Inc Cl B",p:5.20},{n:"Metro Inc",p:5.04},{n:"Intact Financial Corp",p:4.93},{n:"Toromont Industries Ltd",p:4.76},{n:"CGI Inc Cl A",p:4.70},{n:"National Bank of Canada",p:4.59},{n:"Canadian National Railway",p:4.52},{n:"Restaurant Brands Intl",p:4.42},{n:"Loblaw Cos Ltd",p:4.38}],
+   note:"Quality-focused Canadian fund. Risk rated MEDIUM. 10yr annualized 9.56%. Only -2.57% in 2022. Consumer/industrial services tilt. Q4 quartile recently — underperforming short-term. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Franklin Brandywine U.S. High Yield",cat:"Bond",mer:2.39,eq:0.2,cash:99.8,fc:"High Yield Fixed Income",r25:2.55,r24:7.15,r23:9.65,r22:-9.36,r21:2.45,r20:2.17,r19:10.17,r18:-6.17,r17:3.72,r16:16.0,rec:"avoid",risk:"Low-Med",
+   geo:{"North America":96.3,"Latin America":0.4,"Other":3.3},
+   sector:{"Fixed Income":85.6,"Cash":14.2,"Financial Services":0.2},
+   assets:{"Foreign Corp Bonds":67.3,"Canadian Corp Bonds":17.6,"Cash":14.2,"Foreign Govt Bonds":0.5,"US Equity":0.2,"Foreign Bonds - Other":0.2},
+   holdings:[{n:"CAD Currency",p:4.24},{n:"Federal Home Loan Bank Notes",p:3.64},{n:"Viking Ocean Cruises 5.00% 2028",p:2.23},{n:"FirstCash Inc 5.63% 2030",p:1.89},{n:"TransDigm Inc 6.75% 2028",p:1.79},{n:"Travel+Leisure 6.63% 2026",p:1.69},{n:"Enova International 11.25% 2028",p:1.58},{n:"Jefferson Capital 9.50% 2029",p:1.54},{n:"Saturn Oil & Gas 9.63% 2029",p:1.53},{n:"Ryan Specialty 5.88% 2027",p:1.47}],
+   note:"High yield bonds = credit risk with limited upside vs equity. Risk rated LOW-TO-MEDIUM. 10yr annualized 3.89%. Only 2.55% in 2025. Avoid for long-term TFSA growth. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Franklin Canadian Core Plus Bond",cat:"Bond",mer:1.95,eq:0.9,cash:98.7,fc:"Canadian Core Plus Fixed Income",r25:1.81,r24:3.51,r23:5.7,r22:-11.16,r21:-2.33,r20:6.8,r19:6.42,r18:-1.15,r17:2.5,r16:2.78,rec:"avoid",risk:"Low",
+   geo:{"North America":96.8,"Asia":0.3,"Europe":0.1,"Other":2.8},
+   sector:{"Fixed Income":93.9,"Cash":5.0,Energy:0.5,"Financial Services":0.4,"Real Estate":0.2},
+   assets:{"Canadian Corp Bonds":45.3,"Canadian Govt Bonds":31.7,"Foreign Corp Bonds":11.7,"Cash":5.0,"Foreign Govt Bonds":4.8,"Canadian Equity":0.9,"Mortgages":0.4,"Canadian Bonds - Other":0.2},
+   holdings:[{n:"US Treasury 4.00% Nov-2035",p:2.38},{n:"Ontario Province 2.90% Dec-2046",p:1.66},{n:"Ontario Province 3.60% Jun-2035",p:1.64},{n:"Ontario Province 2.65% Dec-2050",p:1.62},{n:"Canada Housing Trust 3.10% Jun-2028",p:1.57},{n:"PSP Capital 4.25% Dec-2055",p:1.41},{n:"Canada Govt 2.75% Dec-2055",p:1.26},{n:"Quebec Province 4.00% Sep-2035",p:1.19},{n:"US Treasury 4.63% Nov-2055",p:1.13},{n:"Alberta Province 3.10% Jun-2050",p:1.12}],
+   note:"Lowest MER in list at 1.95%. Risk rated LOW. Q2 quartile in 2025. 10yr annualized 1.69%. Not suitable for long-term TFSA wealth building despite quality. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Franklin Canadian Monthly Income and Growth",cat:"Balanced",mer:2.72,eq:58.8,cash:41.2,fc:"Canadian Neutral Balanced",r25:6.63,r24:10.27,r23:4.88,r22:-6.43,r21:11.33,r20:1.66,r19:10.87,r18:-3.22,r17:2.34,r16:12.06,rec:"hold",risk:"Low-Med",
+   geo:{"North America":95.5,"Latin America":0.9,"Europe":0.4,"Other":3.2},
+   sector:{"Fixed Income":50.0,"Financial Services":19.2,Energy:7.9,"Industrial Services":6.0,Technology:5.0,"Basic Materials":4.9,Telecommunications:3.6,Utilities:3.4},
+   assets:{"Canadian Equity":36.5,"US Equity":22.3,"Canadian Corp Bonds":15.3,"Canadian Govt Bonds":13.6,"Foreign Corp Bonds":5.2,"Cash":3.0,"Foreign Govt Bonds":2.4,"Income Trust":1.7},
+   holdings:[{n:"Royal Bank of Canada",p:2.47},{n:"Toronto-Dominion Bank",p:1.81},{n:"JPMorgan Chase & Co",p:1.63},{n:"Bank of Montreal",p:1.59},{n:"Royal Bank of Canada 2.10% Jan-2026",p:1.56},{n:"Microsoft Corp",p:1.40},{n:"Canadian National Railway",p:1.35},{n:"Ontario Province 3.75% Jun-2032",p:1.32},{n:"Bank of Nova Scotia",p:1.30},{n:"Canadian Utilities Ltd Cl A",p:1.23}],
+   note:"Income-growth hybrid. Risk rated LOW-TO-MEDIUM. 10yr annualized 5.35%. Q4 quartile recently. Only 6.63% in 2025 — lagging. Better options available for TFSA growth. Inception Sep 2013."},
+
+  {nm:"Equitable Franklin ClearBridge Canadian Equity",cat:"Canadian",mer:2.8,eq:99,cash:1,fc:"Canadian Equity",r25:17.82,r24:13.9,r23:6.95,r22:0.16,r21:25.66,r20:-3.38,r19:18.3,r18:-11.81,r17:3.88,r16:20.51,rec:"buy",risk:"Medium",
+   geo:{"North America":99.2,"Other":0.8},
+   sector:{"Financial Services":34.4,Energy:14.5,"Industrial Services":11.1,"Basic Materials":10.7,Technology:10.6,"Consumer Services":8.9,Utilities:6.0,Telecommunications:3.8},
+   assets:{"Canadian Equity":99.0,"Cash":1.0},
+   holdings:[{n:"Royal Bank of Canada",p:6.39},{n:"Toronto-Dominion Bank",p:5.32},{n:"Bank of Nova Scotia",p:4.10},{n:"Bank of Montreal",p:4.08},{n:"Shopify Inc Cl A",p:3.99},{n:"Brookfield Corp Cl A",p:3.96},{n:"Canadian National Railway",p:3.95},{n:"Franco-Nevada Corp",p:3.70},{n:"Alimentation Couche-Tard",p:3.24},{n:"Canadian Pacific Kansas City",p:3.05}],
+   note:"⭐ Strong 17.82% in 2025. +0.16% in 2022 shows resilience. Risk rated MEDIUM. 10yr annualized 9.18%. Q1 in 2021/2022. Diversified Canadian large-cap. Inception Sep 2013."},
+
+  {nm:"Equitable Franklin ClearBridge Canadian Small Cap",cat:"Canadian",mer:2.89,eq:94.1,cash:5.9,fc:"Canadian Small/Mid Cap Equity",r25:19.58,r24:19.71,r23:14.54,r22:-7.62,r21:25.69,r20:0.56,r19:-3.1,r18:-28.71,r17:-1.95,r16:28.48,rec:"watch",risk:"Med-High",
+   geo:{"North America":98.2,"Latin America":1.1,"Other":0.7},
+   sector:{"Basic Materials":34.5,Energy:20.3,"Consumer Services":9.9,"Real Estate":8.1,"Financial Services":7.7,"Consumer Goods":7.5,Technology:7.2,"Industrial Services":4.8},
+   assets:{"Canadian Equity":93.0,"Income Trust Units":4.9,"International Equity":1.1,"Cash":1.0},
+   holdings:[{n:"Capstone Copper Corp",p:4.41},{n:"Hudbay Minerals Inc",p:4.31},{n:"OR Royalties Inc",p:4.30},{n:"Headwater Exploration Inc",p:4.15},{n:"Enerflex Ltd",p:3.91},{n:"EQB Inc",p:3.86},{n:"Triple Flag Precious Metals",p:3.60},{n:"Kelt Exploration Ltd",p:3.44},{n:"Lundin Mining Corp",p:3.37},{n:"Propel Holdings Inc",p:3.01}],
+   note:"Strong recent momentum (+19.58% in 2025, +19.71% in 2024). Risk rated MED-HIGH. -28.71% in 2018 shows small-cap volatility risk. 10yr annualized 6.53%. 1yr annualized 41.55%. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Franklin ClearBridge Dividend Income",cat:"Canadian",mer:2.7,eq:79.4,cash:20.6,fc:"Canadian Equity Balanced",r25:11.82,r24:11.91,r23:5.15,r22:-3.28,r21:20.62,r20:-1.7,r19:14.56,r18:-7.64,r17:3.11,r16:17.83,rec:"hold",risk:"Low-Med",
+   geo:{"North America":96.3,"Latin America":1.5,"Europe":0.4,"Other":1.8},
+   sector:{"Financial Services":41.1,"Fixed Income":15.5,Energy:11.3,"Industrial Services":8.3,"Basic Materials":7.5,Technology:6.0,Utilities:5.6,Telecommunications:4.7},
+   assets:{"Canadian Equity":58.2,"US Equity":20.8,"Canadian Corp Bonds":11.5,"Income Trust Units":3.1,"Canadian Govt Bonds":2.7,"Cash":2.2,"Foreign Corp Bonds":1.1,"International Equity":0.4},
+   holdings:[{n:"Royal Bank of Canada",p:4.44},{n:"Toronto-Dominion Bank",p:3.15},{n:"Bank of Montreal",p:2.87},{n:"Canadian National Railway",p:2.42},{n:"Bank of Nova Scotia",p:2.26},{n:"Canadian Utilities Ltd Cl A",p:2.12},{n:"Intact Financial Corp",p:1.91},{n:"TMX Group Ltd",p:1.86},{n:"Fortis Inc",p:1.82},{n:"Alimentation Couche-Tard",p:1.78}],
+   note:"Steady dividend income fund. Risk rated LOW-TO-MEDIUM. 10yr annualized 7.62%. Q1 quartile for 3m, 6m, 1yr, 3yr, 5yr, 10yr! Consistent risk-adjusted returns. Inception Sep 2013."},
+
+  {nm:"Equitable Franklin ClearBridge Global Infrastructure Income",cat:"Global",mer:2.71,eq:91.9,cash:8.1,fc:"Global Infrastructure Equity",r25:18.28,r24:8.53,r23:-1.19,r22:0.70,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Medium",
+   geo:{"North America":46.0,"Europe":37.5,"Latin America":7.2,"Asia":4.4,"Other":4.9},
+   sector:{Utilities:50.7,Energy:21.3,"Industrial Services":17.2,"Real Estate":3.9,"Cash":3.8,Technology:2.2,"Other":0.9},
+   assets:{"International Equity":45.7,"US Equity":30.0,"Canadian Equity":16.2,"Income Trust Units":4.3,"Cash":3.8},
+   holdings:[{n:"Engie SA",p:5.40},{n:"Entergy Corp",p:4.86},{n:"TC Energy Corp",p:4.50},{n:"APA Group - Units",p:4.26},{n:"Aena SME SA",p:4.14},{n:"Enel SpA",p:4.02},{n:"Royal Bank of Canada 2.10% Mar-2026",p:4.00},{n:"Canadian National Railway",p:3.98},{n:"Williams Cos Inc",p:3.97},{n:"E.On SE",p:3.91}],
+   note:"Infrastructure/utilities boom driving 18.28% in 2025. +0.70% in 2022 shows defensive quality. Risk rated MEDIUM. 3yr annualized 13.49%. Q1 quartile recently. ESG-integrated. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Franklin Conservative Income ETF Portfolio",cat:"Bond",mer:2.47,eq:27.8,cash:72.2,fc:"Global Fixed Income Balanced",r25:6.51,r24:6.82,r23:7.13,r22:-12.98,r21:0.92,r20:6.79,r19:null,r18:null,r17:null,r16:null,rec:"avoid",risk:"Low",
+   geo:{"North America":74.2,"Multi-National":16.0,"Asia":3.4,"Europe":2.9,"Latin America":0.5,"Africa & Middle East":0.3,"Other":2.7},
+   sector:{"Fixed Income":73.3,Technology:7.5,"Financial Services":6.2,"Cash":4.6,"Exchange Traded Fund":2.4,"Consumer Services":2.2,Energy:2.0,"Consumer Goods":1.8},
+   assets:{"Canadian Govt Bonds":26.0,"Canadian Corp Bonds":18.6,"Foreign Bonds - Other":16.5,"US Equity":13.1,"Canadian Equity":8.0,"International Equity":6.7,"Foreign Corp Bonds":6.5,"Cash":4.6},
+   holdings:[{n:"Franklin Canadian Core Plus Bond ETF (FLCP)",p:29.04},{n:"Franklin Global Core Bond ETF (FLGA)",p:16.04},{n:"Franklin FTSE U.S. Index ETF (FLAM)",p:13.56},{n:"Franklin Canadian Govt Bond Fund O",p:11.82},{n:"Franklin FTSE Canada All Cap ETF (FLCD)",p:7.74},{n:"Franklin Canadian Short Term Bond ETF (FLSD)",p:6.43},{n:"Franklin Brandywine Global Income ETF (FBGO)",p:6.13},{n:"Franklin Intl Equity Index ETF (FLUR)",p:3.79},{n:"Franklin Emerging Markets ETF (FLEM)",p:2.52},{n:"Franklin Systematic Style Premia ETF",p:2.38}],
+   note:"Conservative ETF blend. Risk rated LOW. 5yr annualized 2.18%. -12.98% in 2022. Insufficient growth for long-term TFSA compounding. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Franklin Core ETF Portfolio",cat:"Balanced",mer:2.49,eq:61.8,cash:38.2,fc:"Global Neutral Balanced",r25:11.6,r24:13.09,r23:9.78,r22:-12.97,r21:7.14,r20:7.29,r19:null,r18:null,r17:null,r16:null,rec:"hold",risk:"Low-Med",
+   geo:{"North America":74.6,"Multi-National":9.1,"Asia":7.1,"Europe":6.0,"Africa & Middle East":0.7,"Latin America":0.7,"Other":1.8},
+   sector:{"Fixed Income":52.6,Technology:15.6,"Financial Services":12.6,"Consumer Services":4.7,Energy:3.8,"Consumer Goods":3.7,Healthcare:3.6,"Basic Materials":3.4},
+   assets:{"US Equity":31.7,"Canadian Equity":16.0,"International Equity":14.1,"Canadian Govt Bonds":11.6,"Canadian Corp Bonds":10.6,"Foreign Bonds - Other":9.4,"Foreign Corp Bonds":3.7,"Cash":2.9},
+   holdings:[{n:"Franklin FTSE U.S. Index ETF (FLAM)",p:28.37},{n:"Franklin Canadian Core Plus Bond ETF (FLCP)",p:16.51},{n:"Franklin FTSE Canada All Cap ETF (FLCD)",p:16.07},{n:"Franklin Global Core Bond ETF (FLGA)",p:9.12},{n:"Franklin Intl Equity Index ETF (FLUR)",p:7.90},{n:"Franklin Canadian Govt Bond Fund O",p:6.72},{n:"Franklin Emerging Markets ETF (FLEM)",p:5.25},{n:"Franklin Canadian Short Term Bond ETF (FLSD)",p:3.65},{n:"Franklin Brandywine Global Income ETF (FBGO)",p:3.48},{n:"Franklin Systematic Style Premia ETF",p:2.32}],
+   note:"ETF-based balanced portfolio. Risk rated LOW-TO-MEDIUM. 5yr annualized 5.93%. 3yr annualized 11.52%. Solid MER 2.49%. Reasonable for moderate investors. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Franklin Growth ETF Portfolio",cat:"Balanced",mer:2.4,eq:80.4,cash:17.4,fc:"Global Equity Balanced",r25:15.44,r24:17.38,r23:11.78,r22:-13.1,r21:11.48,r20:7.48,r19:null,r18:null,r17:null,r16:null,rec:"hold",risk:"Low-Med",
+   geo:{"North America":75.1,"Asia":9.6,"Europe":8.0,"Multi-National":4.5,"Africa & Middle East":0.9,"Latin America":0.8,"Other":1.1},
+   sector:{Technology:39.3,"Fixed Income":18.3,"Financial Services":16.8,"Consumer Services":6.3,Energy:5.1,"Consumer Goods":4.9,Healthcare:4.8,"Basic Materials":4.5},
+   assets:{"US Equity":40.2,"Canadian Equity":21.3,"International Equity":18.9,"Canadian Govt Bonds":5.7,"Canadian Corp Bonds":5.2,"Foreign Bonds - Other":4.7,"Cash":1.8,"Other":2.2},
+   holdings:[{n:"Franklin FTSE U.S. Index ETF (FLAM)",p:38.25},{n:"Franklin FTSE Canada All Cap ETF (FLCD)",p:21.59},{n:"Franklin Intl Equity Index ETF (FLUR)",p:10.64},{n:"Franklin Canadian Core Plus Bond ETF (FLCP)",p:8.19},{n:"Franklin Emerging Markets ETF (FLEM)",p:7.08},{n:"Franklin Global Core Bond ETF (FLGA)",p:4.52},{n:"Franklin Canadian Govt Bond Fund O",p:3.33},{n:"Franklin Systematic Style Premia ETF",p:2.24},{n:"Franklin Canadian Short Term Bond ETF (FLSD)",p:1.81},{n:"Franklin Brandywine Global Income ETF (FBGO)",p:1.73}],
+   note:"Growth ETF portfolio. Risk rated LOW-TO-MEDIUM. 5yr annualized 8.50%. 15.44% in 2025. Competitive MER 2.40%. Good global diversification. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Growth",cat:"Balanced",mer:2.54,eq:72.7,cash:26.1,fc:"Global Equity Balanced",r25:12.44,r24:13.51,r23:10.58,r22:-11.45,r21:13.27,r20:3.19,r19:15.11,r18:-6.33,r17:7.93,r16:4.59,rec:"hold",risk:"Low-Med",
+   geo:{"North America":82.9,"Europe":10.3,"Asia":4.9,"Latin America":0.4,"Africa & Middle East":0.3,"Other":1.2},
+   sector:{"Fixed Income":38.7,Technology:19.5,"Financial Services":16.1,"Basic Materials":6.3,"Consumer Services":5.6,"Consumer Goods":4.8,Healthcare:4.7,Energy:4.3},
+   assets:{"US Equity":37.0,"Canadian Bonds - Funds":24.1,"Canadian Equity":20.2,"International Equity":15.5,"Cash":1.3,"Commodities":1.2,"Income Trust Units":0.7},
+   holdings:[{n:"BMO S&P 500 Index ETF (ZSP)",p:27.52},{n:"Active Canadian Bond Int Seg",p:24.08},{n:"BMO MSCI EAFE Hdg to CAD ETF (ZDM)",p:14.12},{n:"Invesco QQQ ETF (QQQ)",p:10.49},{n:"BMO S&P/TSX Capped Comp ETF (ZCN)",p:8.87},{n:"TD Q Canadian Dividend ETF (TQCD)",p:6.72},{n:"Global X Eq Wt Cdn Bks ETF (HBNK)",p:4.27},{n:"iShares S&P/TSX Global Gold ETF (XGD)",p:1.54},{n:"Cash & Cash Equivalents",p:1.22},{n:"CI Gold Bullion ETF C$ Hedged (VALT)",p:1.17}],
+   note:"Growth-oriented balanced. Risk rated LOW-TO-MEDIUM. 10yr annualized 6.65%. Q1 in 2021, Q2 in 2025. Actively managed ETF blend. Consistent compounder. Inception Sep 2013."},
+
+  {nm:"Equitable Income",cat:"Balanced",mer:2.45,eq:41.7,cash:57.2,fc:"Canadian Neutral Balanced",r25:8.86,r24:11.36,r23:6.77,r22:-11.41,r21:8.34,r20:2.52,r19:11.66,r18:-4.73,r17:3.82,r16:2.33,rec:"avoid",risk:"Low-Med",
+   geo:{"North America":93.9,"Europe":3.0,"Asia":1.4,"Latin America":0.4,"Africa & Middle East":0.2,"Other":1.1},
+   sector:{"Fixed Income":63.6,"Financial Services":13.5,Technology:7.0,"Basic Materials":6.4,Energy:3.7,"Consumer Services":2.3,"Consumer Goods":1.8,"Industrial Services":1.7},
+   assets:{"Canadian Bonds - Funds":55.4,"Canadian Equity":24.5,"US Equity":12.5,"International Equity":4.7,"Commodities":1.1,"Cash":1.0,"Income Trust Units":0.8},
+   holdings:[{n:"Active Canadian Bond Int Seg",p:55.39},{n:"BMO S&P/TSX Capped Comp ETF (ZCN)",p:10.39},{n:"BMO S&P 500 Index ETF (ZSP)",p:9.08},{n:"TD Q Canadian Dividend ETF (TQCD)",p:8.42},{n:"Global X Eq Wt Cdn Bks ETF (HBNK)",p:5.35},{n:"BMO MSCI EAFE Hdg to CAD ETF (ZDM)",p:3.92},{n:"Invesco QQQ ETF (QQQ)",p:3.46},{n:"iShares S&P/TSX Global Gold ETF (XGD)",p:1.92},{n:"CI Gold Bullion ETF C$ Hedged (VALT)",p:1.10},{n:"Cash & Cash Equivalents",p:0.97}],
+   note:"Bond-heavy income fund. Risk rated LOW-TO-MEDIUM. 10yr annualized 4.29%. Q4 quartile across virtually all periods. Income bias limits long-term growth. Better options available. Inception Sep 2013."},
+
+  {nm:"Equitable Invesco Global Bond",cat:"Bond",mer:2.41,eq:2.1,cash:88.2,fc:"Global Fixed Income",r25:1.64,r24:2.15,r23:5.36,r22:-14.07,r21:-1.7,r20:6.03,r19:2.59,r18:3.76,r17:-0.16,r16:-2.41,rec:"avoid",risk:"Low",
+   geo:{"North America":74.8,"Europe":19.7,"Asia":4.4,"Multi-National":0.4,"Latin America":0.3,"Other":0.4},
+   sector:{"Fixed Income":88.8,"Cash":9.1,"Financial Services":1.4,"Industrial Goods":0.4,Utilities:0.3},
+   assets:{"Foreign Corp Bonds":37.8,"Foreign Govt Bonds":21.0,"Canadian Corp Bonds":11.7,"Mortgages":9.7,"Cash":9.1,"Foreign Bonds - Other":6.7,"US Equity":2.1,"Canadian Bonds - Other":1.9},
+   holdings:[{n:"Ginnie Mae 6.00% Mar-2056",p:3.20},{n:"Invesco Global Bond ETF (ICGB)",p:3.15},{n:"United Kingdom Govt 4.25% Jun-2032",p:2.45},{n:"Germany Govt 2.30% Feb-2033",p:2.28},{n:"France Govt 3.20% May-2035",p:2.27},{n:"FNMA 6.00% Feb-2025",p:2.15},{n:"Germany Govt Aug-2026",p:1.62},{n:"Germany Govt Feb-2032",p:1.55},{n:"Pershing Square Holdings 1.38% Aug-2027",p:1.25},{n:"Fannie Mae/Freddie Mac 3.00% Feb-2056",p:1.18}],
+   note:"Global bonds devastated by rate hikes. Risk rated LOW. 10yr annualized 0.72%. -14.07% in 2022. Q4 quartile in 2025. Minimal TFSA growth utility. Inception Sep 2013."},
+
+  {nm:"Equitable Invesco Global Companies",cat:"Global",mer:3.09,eq:96.7,cash:3.3,fc:"Global Equity",r25:7.92,r24:23.35,r23:16.56,r22:-18.50,r21:12.71,r20:1.79,r19:19.97,r18:-5.16,r17:null,r16:null,rec:"hold",risk:"Medium",
+   geo:{"North America":71.3,"Europe":17.8,"Asia":10.9},
+   sector:{Technology:43.3,"Financial Services":15.8,"Industrial Services":8.5,"Consumer Services":8.4,"Industrial Goods":8.0,"Consumer Goods":7.4,Healthcare:5.3,"Cash":3.3},
+   assets:{"US Equity":64.9,"International Equity":28.7,"Cash":3.3,"Canadian Equity":3.1},
+   holdings:[{n:"NVIDIA Corp",p:5.04},{n:"Microsoft Corp",p:4.89},{n:"Alphabet Inc Cl A",p:3.96},{n:"Apple Inc",p:3.95},{n:"Amazon.com Inc",p:3.36},{n:"Invesco Cdn Dollar Cash Mgmt Fund I",p:3.28},{n:"Taiwan Semiconductor Mfg",p:2.80},{n:"Canadian Pacific Kansas City",p:2.77},{n:"Mastercard Inc Cl A",p:2.72},{n:"3i Group PLC",p:2.23}],
+   note:"Highest MER in list at 3.09%. Risk rated MEDIUM. -18.50% in 2022. 5yr annualized 7.74%. Q3 quartile recently. Inconsistent returns don't justify premium fee. Inception May 2017."},
+
+  {nm:"Equitable Invesco Global Equity Income Advantage",cat:"Global",mer:2.83,eq:72.9,cash:27.1,fc:"Global Dividend & Income Equity",r25:15.3,r24:21.29,r23:13.94,r22:null,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Medium",
+   geo:{"North America":73.6,"Europe":12.5,"Asia":12.2,"Latin America":1.1,"Africa & Middle East":0.6},
+   sector:{Technology:37.6,"Cash":27.1,"Financial Services":13.9,Healthcare:6.1,"Consumer Services":4.8,"Consumer Goods":4.4,"Industrial Goods":3.3,"Industrial Services":2.8},
+   assets:{"US Equity":43.9,"Cash":27.1,"International Equity":26.4,"Canadian Equity":2.6},
+   holdings:[{n:"Invesco Cdn Dollar Cash Mgmt Fund I",p:19.55},{n:"NVIDIA Corp",p:4.90},{n:"Alphabet Inc Cl A",p:3.60},{n:"Microsoft Corp",p:3.50},{n:"Apple Inc",p:3.10},{n:"iShares Core MSCI Emerging Mkts ETF",p:2.46},{n:"Flex Option Balance MS USD",p:1.70},{n:"US Treasury 19-Mar-2026",p:1.62},{n:"US Treasury Bill (USD)",p:1.59},{n:"US Treasury Bill (USD)",p:1.59}],
+   note:"Strong early track record: 15.30% (2025), 21.29% (2024), 13.94% (2023). Risk rated MEDIUM. 3yr annualized 15.92%. High cash/derivatives structure (27.1% cash). Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Invesco NASDAQ 100 ESG Index ETF",cat:"Nasdaq",mer:2.41,eq:99.9,cash:0.1,fc:"U.S. Equity",r25:13.8,r24:33.12,r23:47.7,r22:-26.94,r21:26.42,r20:38.99,r19:32.34,r18:7.12,r17:21.66,r16:null,rec:"watch",risk:"Med-High",
+   geo:{"North America":94.9,"Europe":4.3,"Latin America":0.5,"Asia":0.3},
+   sector:{Technology:67.5,"Consumer Services":12.8,"Consumer Goods":7.6,Healthcare:5.0,Telecommunications:3.0,"Industrial Services":1.8,"Basic Materials":1.7,"Industrial Goods":0.6},
+   assets:{"US Equity":93.9,"International Equity":5.1,"Canadian Equity":0.9,"Cash":0.1},
+   holdings:[{n:"NVIDIA Corp",p:10.84},{n:"Apple Inc",p:8.84},{n:"Microsoft Corp",p:6.85},{n:"Amazon.com Inc",p:4.79},{n:"Tesla Inc",p:3.88},{n:"Alphabet Inc Cl A",p:3.31},{n:"Alphabet Inc Cl C",p:3.08},{n:"Netflix Inc",p:2.86},{n:"Broadcom Inc",p:2.76},{n:"Meta Platforms Inc",p:2.66}],
+   note:"ESG-screened NASDAQ 100. Risk rated MED-HIGH. 5yr annualized 14.97%. 3yr annualized 25.22%. -26.94% in 2022. Tech-heavy 67.5%. Q1 quartile in 2025. Growth of $10,000 → $53,754. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Invesco NASDAQ 100 Index ETF",cat:"Nasdaq",mer:2.38,eq:100.2,cash:-0.2,fc:"U.S. Equity",r25:19.07,r24:33.63,r23:47.11,r22:-29.39,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Med-High",
+   geo:{"North America":95.8,"Europe":3.3,"Latin America":0.5,"Asia":0.4},
+   sector:{Technology:63.6,"Consumer Services":15.6,"Consumer Goods":7.5,Healthcare:5.2,Telecommunications:2.9,"Industrial Services":2.0,"Industrial Goods":1.9,"Basic Materials":1.3},
+   assets:{"US Equity":95.0,"International Equity":4.2,"Canadian Equity":1.0,"Cash":-0.2},
+   holdings:[{n:"Invesco NASDAQ 100 ETF (QQQM)",p:100.29}],
+   note:"Pure NASDAQ 100 index. Risk rated MED-HIGH. 3yr annualized 27.46%. 19.07% in 2025. -29.39% in 2022. Lowest MER for NASDAQ at 2.38%. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Invesco S&P 500 Equal Weight Index ETF",cat:"US",mer:2.47,eq:100.1,cash:-0.1,fc:"U.S. Equity",r25:5.8,r24:19.9,r23:7.8,r22:-7.7,r21:25.1,r20:8.0,r19:null,r18:null,r17:null,r16:null,rec:"hold",risk:"Med-High",
+   geo:{USA:100},sector:{Technology:14,Healthcare:14,Financials:13,Consumer:12,Industrials:12,Energy:10,Other:25},
+   assets:{"US Equity":100.1},holdings:[],note:"Equal weight reduces big-tech concentration vs cap-weighted. Less consistent but broader sector exposure."},
+
+  {nm:"Equitable Invesco S&P 500 ESG Index ETF",cat:"US",mer:2.34,eq:100,cash:0,fc:"U.S. Equity",r25:10.19,r24:31.23,r23:22.09,r22:-15.69,r21:28.82,r20:17.06,r19:30.38,r18:-6.18,r17:18.5,r16:9.96,rec:"buy",risk:"Medium",
+   geo:{"North America":96.6,"Europe":3.3,"Latin America":0.1},
+   sector:{Technology:54.6,"Financial Services":12.0,Healthcare:10.4,"Consumer Services":6.8,"Industrial Goods":5.4,Energy:4.1,"Consumer Goods":4.0,"Real Estate":2.7},
+   assets:{"US Equity":96.6,"International Equity":3.4},
+   holdings:[{n:"NVIDIA Corp",p:10.75},{n:"Apple Inc",p:9.75},{n:"Microsoft Corp",p:7.30},{n:"Alphabet Inc Cl A",p:4.53},{n:"Alphabet Inc Cl C",p:3.62},{n:"Meta Platforms Inc",p:3.53},{n:"Eli Lilly and Co",p:2.09},{n:"Exxon Mobil Corp",p:1.62},{n:"Walmart Inc",p:1.40},{n:"Visa Inc Cl A",p:1.35}],
+   note:"⭐ Best US equity option. Risk rated MEDIUM. Lowest MER 2.34%. ESG-screened S&P 500. 10yr annualized 14.18%. Q1 quartile in 2025. Outstanding consistent returns. Growth of $10,000 → $60,214. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Invesco S&P/TSX 60 Equal Weight Index ETF",cat:"Canadian",mer:2.51,eq:97.9,cash:2.1,fc:"Canadian Equity",r25:null,r24:null,r23:null,r22:null,r21:null,r20:null,r19:null,r18:null,r17:null,r16:null,rec:"watch",risk:"Medium",
+   geo:{"North America":98.3,"Latin America":1.7},
+   sector:{"Financial Services":30.0,"Basic Materials":20.0,Energy:14.5,"Consumer Services":11.4,"Industrial Services":7.8,Technology:5.8,"Consumer Goods":5.3,Utilities:5.2},
+   assets:{"Canadian Equity":97.9,"Income Trust Units":1.7,"Cash":0.4},
+   holdings:[{n:"Agnico Eagle Mines Ltd",p:2.32},{n:"Wheaton Precious Metals Corp",p:2.19},{n:"Kinross Gold Corp",p:2.05},{n:"Teck Resources Ltd Cl B",p:2.03},{n:"Franco-Nevada Corp",p:2.03},{n:"Canadian Natural Resources",p:1.97},{n:"Suncor Energy Inc",p:1.94},{n:"Nutrien Ltd",p:1.93},{n:"Imperial Oil Ltd",p:1.93},{n:"Cameco Corp",p:1.91}],
+   note:"Top 60 TSX equal-weighted — each stock gets 1.67% weight at rebalancing. Risk rated MEDIUM. No calendar return data yet. MER 2.51%. 6mth simulated: +14.36%. Seg fund inception Nov 2025."},
+
+  {nm:"Equitable Invesco S&P/TSX Composite ESG Index ETF",cat:"Canadian",mer:2.35,eq:99.2,cash:0.8,fc:"Canadian Equity",r25:30.88,r24:18.66,r23:4.69,r22:-9.9,r21:20.79,r20:-1.69,r19:17.73,r18:-10.74,r17:6.51,r16:17.63,rec:"buy",risk:"Medium",
+   geo:{"North America":100},
+   sector:{"Financial Services":41.5,"Basic Materials":26.5,Energy:11.0,"Industrial Services":8.0,"Consumer Services":4.3,Utilities:3.3,"Real Estate":2.8,Technology:2.6},
+   assets:{"Canadian Equity":99.2,"Income Trust Units":0.6,"Cash":0.2},
+   holdings:[{n:"Royal Bank of Canada",p:10.64},{n:"Agnico Eagle Mines Ltd",p:5.72},{n:"Enbridge Inc",p:5.33},{n:"Bank of Montreal",p:4.64},{n:"Canadian Imperial Bank of Commerce",p:4.25},{n:"Bank of Nova Scotia",p:4.25},{n:"Barrick Mining Corp",p:3.92},{n:"Canadian Pacific Kansas City",p:3.58},{n:"Wheaton Precious Metals Corp",p:3.35},{n:"TC Energy Corp",p:3.03}],
+   note:"⭐ Best Canadian fund in 2025 — 30.88%! Risk rated MEDIUM. MER 2.35% (2nd lowest). 10yr annualized 9.83%. Q1 quartile across ALL periods. ESG-screened entire TSX Composite. Growth of $10,000 → $21,648. Seg fund inception Aug 2022."},
+
+  {nm:"Equitable Money Market",cat:"Money",mer:1.34,eq:0,cash:97.4,fc:"Canadian Money Market",r25:1.97,r24:3.69,r23:3.52,r22:0.91,r21:0.0,r20:0.14,r19:0.58,r18:0.31,r17:0.0,r16:0.0,rec:"avoid",risk:"Low",
+   geo:{"North America":100},
+   sector:{"Cash & Cash Equivalent":68.0,"Fixed Income":32.0},
+   assets:{"Cash & Equivalents":68.0,"Canadian Corp Bonds":26.1,"Canadian Bonds - Other":3.3,"Mortgages":2.6},
+   holdings:[{n:"Cash & Cash Equivalents",p:36.15},{n:"Royal Bank of Canada 5.24% Nov-2026",p:3.31},{n:"Glacier Credit Card Trust 4.74% Sep-2029",p:3.28},{n:"Enbridge Pipelines 3.00% Aug-2026",p:3.25},{n:"North West Redwater 3.20% Jan-2026",p:3.25},{n:"Enbridge Gas 2.50% Aug-2026",p:3.25},{n:"Wells Fargo 2.49% Feb-2027",p:3.24},{n:"VW Credit Canada 2.45% Dec-2026",p:3.24},{n:"National Bank 1.53% Jun-2026",p:3.24},{n:"Central 1 Credit Union 5.88% Nov-2026",p:2.65}],
+   note:"Cash preservation only. Risk rated LOW. Lowest MER at 1.34%. 10yr annualized 1.13%. Returns will not beat inflation long-term. Park cash temporarily only — not for TFSA growth. Inception Sep 2013."},
+
+  {nm:"Equitable PH&N Balanced",cat:"Balanced",mer:2.82,eq:58.9,cash:36.6,fc:"Global Equity Balanced",r25:11.57,r24:13.56,r23:7.12,r22:-13.4,r21:9.41,r20:12.04,r19:13.58,r18:-4.78,r17:7.66,r16:5.56,rec:"hold",risk:"Low-Med",
+   geo:{"North America":54.9,"Multi-National":28.0,"Europe":9.9,"Asia":6.0,"Latin America":0.9,"Africa & Middle East":0.2,"Other":0.1},
+   sector:{"Fixed Income":50.0,Technology:15.8,"Financial Services":13.4,"Mutual Fund":5.0,"Basic Materials":4.1,"Consumer Goods":4.1,Healthcare:3.8,"Consumer Services":3.8},
+   assets:{"Foreign Bonds - Funds":28.2,"US Equity":24.9,"Canadian Equity":19.2,"International Equity":14.8,"Cash":3.7,"Foreign Govt Bonds":2.4,"Foreign Corp Bonds":2.3,"Other":4.5},
+   holdings:[{n:"PH&N High Yield Bond Fund Series O",p:24.90},{n:"PH&N Canadian Equity Underlying Fund O",p:12.81},{n:"RBC QUBE Global Equity Fund O",p:11.06},{n:"RBC Global Equity Focus Fund O",p:9.59},{n:"RBC Global Equity Leaders Fund O",p:7.43},{n:"PH&N U.S. Equity Fund O",p:5.64},{n:"PH&N Canadian Equity Value Fund O",p:5.04},{n:"BlueBay Global Inv Grade Corp Bond O",p:4.22},{n:"RBC Emerging Markets Equity Fund O",p:4.15},{n:"RBC Canadian Core Real Estate Fund N",p:2.93}],
+   note:"Phillips Hager & North quality management. Risk rated LOW-TO-MEDIUM. 10yr annualized 6.55%. Consistent balanced returns. 11.57% in 2025. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable PH&N Monthly Income",cat:"Balanced",mer:2.49,eq:61.9,cash:38.1,fc:"Canadian Neutral Balanced",r25:8.99,r24:11.5,r23:7.79,r22:-6.14,r21:15.02,r20:3.99,r19:12.18,r18:-6.65,r17:3.55,r16:11.73,rec:"hold",risk:"Low-Med",
+   geo:{"North America":94.0,"Multi-National":4.3,"Latin America":1.7},
+   sector:{"Fixed Income":38.6,"Financial Services":24.9,Energy:11.7,"Industrial Services":7.5,"Cash":4.8,"Consumer Services":4.7,Utilities:4.1,"Real Estate":3.7},
+   assets:{"Canadian Equity":61.9,"Canadian Corp Bonds":11.2,"Canadian Govt Bonds":9.5,"Cash":4.8,"Canadian Bonds - Funds":4.8,"Foreign Bonds - Funds":4.3,"Income Trust Units":3.5},
+   holdings:[{n:"RBC High Yield Bond Fund Series O",p:4.75},{n:"PH&N High Yield Bond Fund Series O",p:4.34},{n:"Toronto-Dominion Bank",p:3.75},{n:"Royal Bank of Canada",p:3.62},{n:"Enbridge Inc",p:3.27},{n:"Canadian Pacific Kansas City",p:2.62},{n:"Canadian Govt Bond 2.750% Mar-2031",p:2.26},{n:"Canadian Imperial Bank of Commerce",p:2.20},{n:"Canadian National Railway",p:2.18},{n:"TC Energy Corp",p:2.04}],
+   note:"Good monthly income with PH&N quality. Risk rated LOW-TO-MEDIUM. 10yr annualized 6.45%. Q1 quartile in 2025. 5yr annualized 7.70%. Consistent across cycles. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Vanguard Canada Index ETF",cat:"Canadian",mer:2.48,eq:100,cash:0,fc:"Canadian Equity",r25:26.37,r24:19.79,r23:10.16,r22:-6.89,r21:26.13,r20:2.39,r19:20.47,r18:-9.5,r17:6.98,r16:18.14,rec:"buy",risk:"Medium",
+   geo:{"North America":100},
+   sector:{"Financial Services":39.4,"Basic Materials":20.0,Energy:15.2,"Industrial Services":8.1,Technology:7.9,"Consumer Services":5.5,Utilities:2.2,"Real Estate":1.7},
+   assets:{"Canadian Equity":100},
+   holdings:[{n:"Royal Bank of Canada",p:7.75},{n:"Toronto-Dominion Bank",p:5.41},{n:"Shopify Inc Cl A",p:4.77},{n:"Agnico Eagle Mines Ltd",p:4.10},{n:"Enbridge Inc",p:3.79},{n:"Bank of Montreal",p:3.39},{n:"Canadian Imperial Bank of Commerce",p:3.10},{n:"Bank of Nova Scotia",p:3.10},{n:"Brookfield Corp Cl A",p:3.04},{n:"Canadian Natural Resources",p:2.92}],
+   note:"⭐ VCN equivalent. Entire Canadian market. Risk rated MEDIUM. MER 2.48%. 10yr annualized 11.50%. 26.37% in 2025. Growth of $10,000 → $28,257. Core Canadian holding. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Vanguard Canadian Aggregate Bond Index ETF",cat:"Bond",mer:2.02,eq:0,cash:100,fc:"Canadian Fixed Income",r25:1.27,r24:2.08,r23:4.57,r22:-13.4,r21:-4.55,r20:6.49,r19:4.55,r18:-0.53,r17:0.3,r16:-0.57,rec:"avoid",risk:"Low",
+   geo:{"North America":99.7,"Europe":0.2,"Asia":0.1},
+   sector:{"Fixed Income":99.9,"Cash":0.1},
+   assets:{"Canadian Govt Bonds":69.6,"Canadian Corp Bonds":29.1,"Foreign Corp Bonds":0.8,"Foreign Govt Bonds":0.4,"Cash":0.1},
+   holdings:[{n:"Canadian Govt Bond 2.75% Sep-2030",p:1.55},{n:"Canada Govt 3.25% Jun-2035",p:1.52},{n:"Canada Govt 3.25% Dec-2035",p:1.44},{n:"Canada Govt 3.00% Jun-2034",p:1.31},{n:"Canada Govt 2.75% Mar-2030",p:1.26},{n:"Canada Govt 3.25% Dec-2034",p:1.21},{n:"Canadian Govt Bond 2.50% Nov-2027",p:1.18},{n:"Canadian Govt Bond 2.50% Aug-2027",p:1.13},{n:"Canada Govt 1.50% Dec-2031",p:1.12},{n:"Canada Govt 2.75% May-2027",p:1.07}],
+   note:"Lowest MER bond fund at 2.02%. Risk rated LOW. 10yr annualized only 0.02%. -13.40% in 2022. Q4 quartile recently. Despite quality, bonds don't serve 5-10yr TFSA growth goals. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Vanguard Developed All Cap ex North America Index ETF",cat:"Global",mer:2.5,eq:99.2,cash:0.8,fc:"International Equity",r25:27.65,r24:8.85,r23:12.22,r22:-12.04,r21:6.58,r20:5.7,r19:12.63,r18:-9.18,r17:15.97,r16:-4.53,rec:"buy",risk:"Med-High",
+   geo:{Europe:57.3,Asia:40.8,"Africa & Middle East":1.1,"Multi-National":0.6,"Latin America":0.1,"North America":0.1},
+   sector:{"Financial Services":37.3,"Consumer Goods":12.8,Technology:12.5,"Industrial Goods":12.0,Healthcare:9.1,"Basic Materials":6.0,"Industrial Services":5.2,"Real Estate":5.1},
+   assets:{"International Equity":99.2,"Income Trust Units":0.8},
+   holdings:[{n:"Samsung Electronics Co Ltd",p:2.57},{n:"ASML Holding NV",p:2.08},{n:"SK Hynix Inc",p:1.45},{n:"Roche Holding AG",p:1.22},{n:"Novartis AG Cl N",p:1.18},{n:"HSBC Holdings PLC",p:1.17},{n:"AstraZeneca PLC",p:1.14},{n:"Nestle SA Cl N",p:1.00},{n:"Toyota Motor Corp",p:0.95},{n:"Shell PLC",p:0.87}],
+   note:"⭐ VIU equivalent. 27.65% in 2025 from Europe/Asia rally. Risk rated MED-HIGH. 10yr annualized 8.19%. 1yr annualized 33.27%! Excellent international diversifier. MER 2.50%. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Vanguard Global All Cap ex Canada Index ETF",cat:"Global",mer:2.48,eq:98.4,cash:1.0,fc:"Global Equity",r25:17.13,r24:23.36,r23:16.34,r22:-15.11,r21:14.82,r20:11.45,r19:17.15,r18:-4.58,r17:13.28,r16:2.35,rec:"buy",risk:"Med-High",
+   geo:{"North America":61.1,"Asia":18.9,"Europe":17.3,"Africa & Middle East":1.4,"Latin America":0.9,"Multi-National":0.2,"Other":0.2},
+   sector:{Technology:44.7,"Financial Services":15.9,Healthcare:8.7,"Consumer Goods":8.1,"Industrial Goods":7.8,"Consumer Services":7.6,Energy:3.6,"Real Estate":3.6,"Other":0.6},
+   assets:{"US Equity":59.9,"International Equity":38.4,"Cash":0.6,"Income Trust Units":0.3,"Foreign Corp Bonds":0.1,"Canadian Equity":0.1},
+   holdings:[{n:"Vanguard Large Cap ETF",p:55.08},{n:"Vanguard FTSE Dev All Cap ex NA ETF (VIU)",p:27.19},{n:"Vanguard Emerging Markets Stock ETF (VWO)",p:11.02},{n:"Vanguard Small-Cap Index ETF (VB)",p:6.71}],
+   note:"⭐⭐ THIS IS VXC. #1 TFSA pick. 13,000+ global stocks. Risk rated MED-HIGH. 10yr annualized 10.44%. MER 2.48%. Consistent positive history. USA 60% + global 40%. Perfect long-term wealth builder. Simulated — seg fund inception Nov 2025."},
+
+  {nm:"Equitable Vanguard S&P 500 Index ETF",cat:"US",mer:2.33,eq:100,cash:0.1,fc:"U.S. Equity",r25:13.25,r24:32.22,r23:20.5,r22:-14.61,r21:24.79,r20:12.98,r19:21.71,r18:1.03,r17:11.1,r16:6.06,rec:"buy",risk:"Med-High",
+   geo:{"North America":97.4,"Europe":2.5,"Latin America":0.1},
+   sector:{Technology:50.4,"Financial Services":12.3,"Consumer Services":10.1,Healthcare:9.1,"Consumer Goods":6.4,"Industrial Goods":6.0,Energy:3.2,Utilities:2.5},
+   assets:{"US Equity":97.4,"International Equity":2.6,"Cash":0.1,"Other":-0.1},
+   holdings:[{n:"Vanguard 500 Index ETF (VOO)",p:100.00}],
+   note:"⭐ VOO equivalent. Lowest MER 2.33% (cheapest in list). Risk rated MED-HIGH. 10yr annualized 12.98%. 13.25% in 2025. Growth of $10,000 → $32,551. S&P 500 long-term wealth machine. Simulated — seg fund inception Nov 2025."},
+];
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+const ST = {cat:'',risk:'',rec:'',sort:'r25',search:'',starOnly:false,starred:new Set(),cmpCI:null,calcCI:null,mapFund:null};
+function avg5(f){const v=[f.r25,f.r24,f.r23,f.r22,f.r21].filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:0;}
+function recScore(r){return{buy:4,watch:3,hold:2,avoid:1}[r]||0;}
+const RL={buy:'BUY',hold:'HOLD',watch:'WATCH',avoid:'AVOID'};
+const RC={buy:'rb',hold:'rh',watch:'rw',avoid:'ra'};
+const CC={Global:'cbG',US:'cbU',Canadian:'cbC',Balanced:'cbB',Bond:'cbF',Nasdaq:'cbU',Money:'cbF'};
+function pct(v,size=''){if(v==null)return `<span class="rn neu${size}">—</span>`;return `<span class="rn ${v>0?'pos':v<0?'neg':'neu'}${size}">${v>0?'+':''}${v.toFixed(1)}%</span>`;}
+function spk(f){const vs=[f.r19,f.r20,f.r21,f.r22,f.r23,f.r24,f.r25].filter(v=>v!=null);if(!vs.length)return '';const mx=Math.max(...vs.map(Math.abs),5);return '<div class="spk">'+vs.map(v=>`<div class="sb" style="height:${Math.max(2,Math.abs(v)/mx*20)}px;background:${v>=0?'var(--accent3)':'var(--red)'};opacity:.85;"></div>`).join('')+'</div>';}
+function getFiltered(){
+  let d=[...F];
+  if(ST.search)d=d.filter(f=>f.nm.toLowerCase().includes(ST.search));
+  if(ST.cat)d=d.filter(f=>normCat(f.cat)===ST.cat);
+  if(ST.risk)d=d.filter(f=>f.risk===ST.risk);
+  if(ST.rec)d=d.filter(f=>f.rec===ST.rec);
+  if(ST.starOnly)d=d.filter(f=>ST.starred.has(f.nm));
+  d.sort((a,b)=>{
+    if(ST.sort==='name')return a.nm.localeCompare(b.nm);
+    if(ST.sort==='rec')return recScore(b.rec)-recScore(a.rec);
+    if(ST.sort==='avg5')return avg5(b)-avg5(a);
+    if(ST.sort==='mer')return a.mer-b.mer;
+    if(ST.sort==='nav')return (b.nav||0)-(a.nav||0);
+    if(ST.sort==='p26')return (b.p26??-999)-(a.p26??-999);
+    return (b[ST.sort]??-999)-(a[ST.sort]??-999);
+  });
+  return d;
+}
+function isDark(){return document.documentElement.getAttribute('data-theme')==='dark';}
+function chartColors(){return{gc:isDark()?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.05)',tc:isDark()?'#3a5270':'#8aa0bb'};}
+
+// ═══════════════════════════════════════════════
+// CATEGORY MAPPING — 5 canonical cats
+// ═══════════════════════════════════════════════
+// Nasdaq→US, Money→Bond for filter purposes
+function normCat(cat){
+  if(cat==='Nasdaq')return 'US';
+  if(cat==='Money')return 'Bond';
+  return cat;
+}
+
+// NAV data from PDFs (Feb 28 / Mar 16 2026)
+const NAV_DATA={
+  "Equitable Balanced":17.24,
+  "Equitable Bond":11.33,
+  "Equitable Brandes Global Equity":10.26,
+  "Equitable Brandes International Equity":10.44,
+  "Equitable Brandes U.S. Equity":10.47,
+  "Equitable Canoe Asset Allocation Portfolio":10.62,
+  "Equitable Canoe Enhanced Income":10.21,
+  "Equitable Canoe Equity Portfolio":10.86,
+  "Equitable Dynamic Equity Income":18.59,
+  "Equitable Dynamic Global Real Estate":11.09,
+  "Equitable Dynamic U.S. Strategic Yield":14.13,
+  "Equitable Dynamic Value Balanced":18.12,
+  "Equitable Equity":10.35,
+  "Equitable Fidelity® Climate Leadership Balanced":14.40,
+  "Equitable Fidelity® Climate Leadership":null,
+  "Equitable Fidelity® Dividend":10.84,
+  "Equitable Fidelity® Global Equity+ Balanced":10.28,
+  "Equitable Fidelity® Global Innovators":25.14,
+  "Equitable Fidelity® Special Situations":27.19,
+  "Equitable Fidelity® Tactical High Income":10.07,
+  "Equitable Fidelity® U.S. Focused Stock":17.92,
+  "Equitable Fiera Canadian Equity":10.17,
+  "Equitable Franklin Brandywine U.S. High Yield":9.92,
+  "Equitable Franklin Canadian Core Plus Bond":11.01,
+  "Equitable Franklin Canadian Monthly Income and Growth":12.77,
+  "Equitable Franklin ClearBridge Canadian Equity":24.79,
+  "Equitable Franklin ClearBridge Canadian Small Cap":11.48,
+  "Equitable Franklin ClearBridge Dividend Income":21.17,
+  "Equitable Franklin ClearBridge Global Infrastructure Income":13.59,
+  "Equitable Franklin Conservative Income ETF Portfolio":10.01,
+  "Equitable Franklin Core ETF Portfolio":10.11,
+  "Equitable Franklin Growth ETF Portfolio":10.18,
+  "Equitable Growth":20.15,
+  "Equitable Income":15.95,
+  "Equitable Invesco Global Bond":11.69,
+  "Equitable Invesco Global Companies":16.61,
+  "Equitable Invesco Global Equity Income Advantage":10.15,
+  "Equitable Invesco NASDAQ 100 ESG Index ETF":19.78,
+  "Equitable Invesco NASDAQ 100 Index ETF":9.76,
+  "Equitable Invesco S&P 500 ESG Index ETF":16.70,
+  "Equitable Invesco S&P/TSX 60 Equal Weight Index ETF":10.69,
+  "Equitable Invesco S&P/TSX Composite ESG Index ETF":16.57,
+  "Equitable Money Market":11.20,
+  "Equitable PH&N Balanced":10.06,
+  "Equitable PH&N Monthly Income":10.38,
+  "Equitable Vanguard Canada Index ETF":10.74,
+  "Equitable Vanguard Canadian Aggregate Bond Index ETF":9.93,
+  "Equitable Vanguard Developed All Cap ex North America Index ETF":10.66,
+  "Equitable Vanguard Global All Cap ex Canada Index ETF":10.09,
+  "Equitable Vanguard S&P 500 Index ETF":9.82
+};
+
+// Inject NAV into each fund object
+F.forEach(f=>{if(NAV_DATA[f.nm]!=null)f.nav=NAV_DATA[f.nm];});
+
+// ═══════════════════════════════════════════════════════════════════
+// 2026 PREDICTIONS — Based on Goldman Sachs, JPMorgan, Morgan Stanley,
+// Morningstar Canada, Schwab, Edward Jones, Empire Life Jan 2026 outlooks.
+// TSX S&P 500 Mar 17 2026 context: TSX at 33,224 (+34% YoY). All estimates
+// are PROJECTIONS ONLY — not guaranteed. Past performance ≠ future results.
+// ═══════════════════════════════════════════════════════════════════
+const PRED_2026={
+  // ── CANADIAN EQUITY ──────────────────────────────────────────────
+  // TSX consensus: +5-10%. Materials/gold still strong (gold ~$3,000+),
+  // financials benefit from BoC at 2.25%, CUSMA review July 2026 key risk.
+  // Morningstar/RBC/BMO target TSX at 33,500–35,200 yr-end.
+  "Equitable Invesco S&P/TSX Composite ESG Index ETF":
+    {p26:12.0,p26note:"ESG-screened TSX Composite. Heavily weighted in Materials (26.5%) & Financials (41.5%) — both sectors with strong 2026 outlooks. Gold remains elevated ($3,000+), BoC at 2.25% supports banks. BMO targets TSX at 34,000. 30.88% in 2025 makes repeat unlikely but 10-14% is credible. Consensus: +10-14%. RISK: CUSMA July 2026 review, tariff renegotiation."},
+  "Equitable Vanguard Canada Index ETF":
+    {p26:10.0,p26note:"Broad TSX market (VCN equivalent). Financial Services 39.4% + Materials 20% + Energy 15.2% = 75% in sectors analysts favour for 2026. Lower rate environment supports banks. Gold/copper prices expected to stay elevated. Consensus: +8-12%. RISK: Trade policy, gold price correction, consumer weakness."},
+  "Equitable Franklin ClearBridge Canadian Equity":
+    {p26:11.0,p26note:"Large-cap Canadian equity. Diversified across Financials (34.4%), Energy (14.5%), Basic Materials (10.7%). 17.82% in 2025, Q1 in 2021. Shopify + banks + railway = quality. BoC rate cuts support multiples. Consensus: +9-13%. RISK: Tariff renegotiation, CAD strengthening vs USD."},
+  "Equitable Fiera Canadian Equity":
+    {p26:8.0,p26note:"Quality-focused Canadian fund. Consumer/Industrial Services 41.6% combined. Notable: Quebecor, Metro, Toromont — defensive quality names. Less gold exposure means it may lag materials-heavy peers. Q4 recently; potential mean-reversion. Consensus: +6-10%."},
+  "Equitable Canoe Equity Portfolio":
+    {p26:10.0,p26note:"Energy-heavy (30.8%) Canadian fund. Energy 'dark horse' thesis for 2026 per BMO — any supply disruption catalyst could outperform. 2025's gold surge may moderate. 10yr compound 11.73% is stellar. Consensus: +8-12%. RISK: Oil surplus, energy demand slowdown."},
+  "Equitable Dynamic Equity Income":
+    {p26:9.0,p26note:"Dividend-focused Canadian equity. Financials 47.5% = outsized bank exposure. Big Six banks near historical highs but BoC rate stability supports earnings. 13.42% in 2025. Monthly income + capital growth. Q4 vs category recently is a concern. Consensus: +7-11%."},
+  "Equitable Fidelity® Dividend":
+    {p26:10.0,p26note:"Canadian dividend fund. Financial Services 38.8%, Energy 14.2%, Basic Materials 13.5%. Consistent performer — only -2.45% in 2022. 17.18% in 2025. ESG-screened quality names. BoC easing tailwind for financials. Consensus: +8-12%."},
+  "Equitable Invesco S&P/TSX 60 Equal Weight Index ETF":
+    {p26:9.0,p26note:"Equal-weight TSX 60 — overweights Materials (20%) vs cap-weighted. Gold stocks (Agnico, Wheaton, Kinross) given equal footing with banks. Materials analysts bullish on gold ($4,000–$6,000 target range). New fund, limited track record. Consensus: +7-11%."},
+  "Equitable Franklin ClearBridge Canadian Small Cap":
+    {p26:15.0,p26note:"Canadian small-cap. Basic Materials 34.5% + Energy 20.3% = 55% in commodity sectors. Gold/copper miners (Capstone, Hudbay, Lundin) stand to benefit from elevated metals prices. Small-cap premiums during BoC easing cycles. Edward Jones overweight Materials/Energy. 19.58% in 2025. Consensus: +12-18%. HIGH RISK: -28.71% in 2018."},
+  "Equitable Franklin ClearBridge Dividend Income":
+    {p26:9.0,p26note:"Canadian equity balanced. Financials 41.1%, Energy 11.3%. Q1 quartile for nearly all time periods. Consistently outperforms category. Bond/stock hybrid with up to 25% bonds = downside protection. Consensus: +7-11%."},
+  "Equitable PH&N Monthly Income":
+    {p26:8.0,p26note:"Canadian neutral balanced. Financials 24.9% + Fixed Income 38.6%. Monthly income focus limits upside vs pure equity. RBC/PH&N quality management. 8.99% in 2025. BoC easing supports both equity and bond components. Consensus: +6-10%."},
+  // ── US EQUITY ──────────────────────────────────────────────────────
+  // S&P 500 consensus: Goldman 12%, Morgan Stanley 10%, JPM bullish AI,
+  // Deutsche Bank 8%, BofA 3.7% (conservative). Average ~8-12%.
+  // AI capex supercycle, 12% EPS growth, Fed rate cuts support.
+  "Equitable Vanguard S&P 500 Index ETF":
+    {p26:10.0,p26note:"VOO — pure S&P 500. Goldman Sachs forecasts +12%, Morgan Stanley ~+10%, average analyst consensus ~+9-11%. Technology 50.4% benefits from AI supercycle (JPMorgan: AI-driven 13-15% EPS growth for mega-caps). Fed rate cuts provide valuation support. 10yr annualized 12.98% supports long-term thesis. Consensus: +8-12%. RISK: Stretched valuations at 22x P/E, tariff uncertainty."},
+  "Equitable Invesco S&P 500 ESG Index ETF":
+    {p26:10.5,p26note:"ESG S&P 500 — excludes tobacco/weapons, overweights quality tech. Technology 54.6% vs S&P 500's 50%. ESG screens tend to overweight Alphabet, NVIDIA vs Exxon. 10yr annualized 14.18% is exceptional. Similar S&P 500 outlook with slight tech tilt upside. Consensus: +9-13%. RISK: ESG underweights energy (4.1%) — energy could surprise in 2026."},
+  "Equitable Invesco S&P 500 Equal Weight Index ETF":
+    {p26:8.0,p26note:"Equal-weight S&P 500. Unlike cap-weight, each company gets ~0.2% weight, removing mega-cap dominance. More exposure to Industrials, Energy, Healthcare, Materials vs Technology. Historically outperforms cap-weight during value/cyclical rotations. 5.8% in 2025 vs S&P 500's 13.25% = significant underperformance (AI mega-cap surge). 2026: value/cyclical rotation possible if mega-caps consolidate. Goldman: 'equal weight could close the gap.' Consensus: +6-10%."},
+  "Equitable Fidelity® U.S. Focused Stock":
+    {p26:13.0,p26note:"Concentrated US large-cap. Top holdings: NVIDIA (9.28%), Alphabet (9.09%), Amazon (6.64%). AI mega-cap focus. Wedbush's Dan Ives: NVIDIA, Microsoft, Apple, Tesla top picks for 2026. 3yr annualized 23.77% = exceptional but volatile. Technology 54.3%. RISK: 10yr annualized 15.77% but massive volatility (-21.17% in 2022). Consensus: +10-16%."},
+  "Equitable Invesco NASDAQ 100 Index ETF":
+    {p26:13.0,p26note:"Pure NASDAQ 100 (QQQM). Technology 63.6% + Consumer Services 15.6%. AI capex boom drives Alphabet (AI infrastructure), NVIDIA (GPUs), Amazon (AWS AI). 3yr annualized 27.46%. 19.07% in 2025. Goldman: +12% S&P 500, NASDAQ likely to outperform on AI narrative. Consensus: +10-16%. HIGH RISK: -29.39% in 2022 shows extreme downside."},
+  "Equitable Invesco NASDAQ 100 ESG Index ETF":
+    {p26:12.0,p26note:"ESG NASDAQ 100. Excludes Meta Platforms from top holdings (ESG screen). Technology 67.5%. NVIDIA 10.84%, Apple 8.84%, Microsoft 6.85%. AI beneficiary — same thesis as NASDAQ 100 but ESG filtered. 5yr annualized 14.97%. Consensus: +10-14%. RISK: High concentration, valuation risk."},
+  "Equitable Brandes U.S. Equity":
+    {p26:9.0,p26note:"Value-oriented US equity. Healthcare 29.8%, Financial Services 18.4%. Merck, Pfizer, Citigroup, FedEx = deep value names. Value factor expected to outperform in 2026 per Goldman (wide valuation spreads). Healthcare: Morgan Stanley bullish on 2026 earnings. Brandes' contrarian value style less correlated to AI hype. Consensus: +7-11%."},
+  "Equitable Dynamic U.S. Strategic Yield":
+    {p26:5.5,p26note:"US equity + bonds balanced. Technology 36.5%, Fixed Income 23.4%. 0.23% in 2025 was a major disappointment. Q4 quartile across all periods. Highest MER at 3.01%. Even with a good 2026 market, MER drag severely limits returns. Avoid for TFSA. Consensus: +4-7% net of MER drag."},
+  "Equitable Fidelity® Global Equity+ Balanced":
+    {p26:9.0,p26note:"Global balanced fund. Fixed Income 51.8%, Technology 14.6%. Only 2025 data point (10.59%). RBC/Fidelity quality management. Global bonds headwind if rates stable. Equity 48% component benefits from global growth. New fund — limited history. Consensus: +7-11%."},
+  // ── GLOBAL EQUITY ──────────────────────────────────────────────────
+  // Goldman: global equities +11% in USD. International outperformed US in 2025.
+  // Schwab: international stocks poised for another strong year.
+  // Europe: Germany fiscal stimulus, ECB cuts, earnings acceleration.
+  // Japan: Sanaenomics, corporate reforms, weak yen boosting exports.
+  "Equitable Vanguard Global All Cap ex Canada Index ETF":
+    {p26:11.0,p26note:"VXC — 13,000+ global stocks ex-Canada. USA 59.9% + International 38.4%. Goldman Sachs: +11% global equity 12-month forecast. Geographic diversification rewarded in 2025 — trend continues per Goldman. Technology 44.7% benefits from AI supercycle globally. 10yr annualized 10.44%. BEST TFSA pick long-term. Consensus: +9-13%."},
+  "Equitable Vanguard Developed All Cap ex North America Index ETF":
+    {p26:12.0,p26note:"VIU — Developed markets ex-North America. Europe 57.3% + Asia 40.8%. Germany €1T fiscal stimulus package massive tailwind. Japan: Sanaenomics corporate reforms + shareholder returns. Schwab: 'Europe looks particularly bright for 2026.' MSCI EAFE returned 31.2% in 2025. Earnings set to accelerate. USD weakness adds CAD return. Consensus: +10-15%. 1yr annualized 33.27%."},
+  "Equitable Brandes International Equity":
+    {p26:13.0,p26note:"Value-focused international equity. Europe 56.2%, Asia 25.4%. Consumer Goods 32.9% (Carrefour, Heineken, Walmart Mexico). Value factor: MSCI EAFE Value Index surged 42.2% in 2025 per AB. European banks at 9-10x P/E vs US counterparts (Fidelity 2026 Intl Outlook). 30.52% in 2025. Value tilt may continue to outperform. Consensus: +11-15%."},
+  "Equitable Brandes Global Equity":
+    {p26:12.0,p26note:"Value global equity. Healthcare 29.5% + Technology 19.2%. GlaxoSmithKline, TotalEnergies, Samsung, TSMC. Multi-region value portfolio. Goldman: global broadening bull market in 2026 favours value/diversification. Latin America 6.8% EM exposure benefits from rate cuts. Consensus: +10-14%."},
+  "Equitable Invesco Global Companies":
+    {p26:9.0,p26note:"Global large-cap equity. Technology 43.3%, Financials 15.8%. MER 3.09% is the highest in the list — fees significantly drag returns. NVIDIA, Microsoft, Alphabet as top holdings (AI beneficiaries). Despite positive market outlook, 3.09% MER means after-fee returns will lag peers by ~0.6-1.0%. Q3 quartile recently. Consensus: +7-11% gross, ~6-8% net."},
+  "Equitable Invesco Global Equity Income Advantage":
+    {p26:11.0,p26note:"Global dividend with options overlay (ELNs). US 43.9%, International 26.4%. NVIDIA, Alphabet, Microsoft top holdings. Options strategy provides income enhancement but caps upside. 3yr track record: 15.30% (2025), 21.29% (2024), 13.94% (2023) = exceptional. Goldman: global equities +11%. Income strategy well-positioned for stable/rising market. Consensus: +9-13%."},
+  "Equitable Franklin ClearBridge Global Infrastructure Income":
+    {p26:13.0,p26note:"Global infrastructure. Utilities 50.7%, Energy 21.3%, Industrial Services 17.2%. AI DATA CENTER POWER DEMAND is a massive tailwind — new data centers need enormous electrical infrastructure (Entergy, E.On, Engie). Defence spending boom (Canada's $280B plan + Europe's rearmament). Edward Jones: Utilities/Industrials/Energy all forecast double-digit earnings growth. +18.28% in 2025. Consensus: +11-15%."},
+  "Equitable Fidelity® Global Innovators":
+    {p26:18.0,p26note:"Disruptive innovation global fund. Technology 63.8%. Alphabet (12.4% combined Cl A+C), NVIDIA, Microsoft, Tesla, Applovin. AI capex supercycle at full speed. JPMorgan: AI names responsible for 'all incremental earnings growth,' above-market EPS growth 'again next year.' Applovin AI advertising platform — massive growth. Consensus: +14-22%. EXTREME RISK: -29.88% in 2022. Only for aggressive investors."},
+  "Equitable Fidelity® Special Situations":
+    {p26:16.0,p26note:"Canadian special situations. Basic Materials 39.2% (Agnico Eagle, Ero Copper, Pan American Silver, ARC Resources). Gold expected to remain elevated ($4,000-$6,000 target from National Bank). Copper demand from AI data centers and electrification. Two consecutive 30%+ years. Agnico Eagle near all-time highs. Consensus: +13-19%. RISK: Commodity price correction, small-cap illiquidity."},
+  "Equitable Fidelity® Climate Leadership Balanced":
+    {p26:11.0,p26note:"ESG climate balanced fund. Industrial Goods 18.2% (Teledyne, Westinghouse, Sandvik, Epiroc) — AI infrastructure/defence supply chain. Fixed Income 41.8% provides ballast. Q1 quartile across 3m/6m/1yr/3yr. Germany's €1T fiscal plan includes massive clean energy and infrastructure. ESG clean energy tailwind continues. Consensus: +9-13%."},
+  // ── BALANCED FUNDS ─────────────────────────────────────────────────
+  // Balanced: expected +6-10% based on 60/40 type blend of equity/bond outlook.
+  // Canadian bonds: +2-4% if BoC holds rates near 2.25%.
+  "Equitable Balanced":
+    {p26:8.5,p26note:"Balanced fund (Canadian Bond Seg 39.8% + US Equity 24.7% + Canadian 20.1% + International 12.3%). Multi-asset ETF strategy. S&P 500 (~+10%) + TSX (~+10%) + Bonds (~+3%) blend = ~8-9% expected. 10yr annualized 5.08%. Good for moderate risk. Consensus: +7-10%."},
+  "Equitable Growth":
+    {p26:10.0,p26note:"Growth balanced fund. US Equity 37% + Canadian 20.2% + International 15.5% + Canadian Bond Fund 24.1%. Higher equity weight vs Balanced fund. Q1/Q2 performer across multiple periods. 10yr annualized 6.65%. Expects to outperform Balanced. Consensus: +8-12%."},
+  "Equitable Dynamic Value Balanced":
+    {p26:9.5,p26note:"Canadian equity balanced. Financials 35.9%, Fixed Income 27%. Banks (RBC, TD, BNS, Manulife) near highs but earnings growth expected. Power Corp, Onex = value conglomerates. 10yr annualized 5.62%. Q2 quartile across multiple periods. Consensus: +8-11%."},
+  "Equitable Canoe Asset Allocation Portfolio":
+    {p26:9.0,p26note:"Tactical balanced. Energy 28.9%, Fixed Income 18.7%, Financials 13.3%. Energy as 'dark horse' for 2026 per BMO — Tourmaline, Canadian Natural. Tactical allocation can shift. Positive even in 2022 (+0.32%). 10yr annualized 8.88%. Consensus: +7-11%."},
+  "Equitable Franklin Canadian Monthly Income and Growth":
+    {p26:7.5,p26note:"Canadian neutral balanced. Fixed Income 50%, Financials 19.2%. Conservative income focus limits upside. Q4 quartile recently. Only 6.63% in 2025 when peers earned 15-30%. 10yr annualized 5.35%. Better options exist for TFSA growth. Consensus: +6-9%."},
+  "Equitable Fidelity® Tactical High Income":
+    {p26:9.5,p26note:"Tactical income balanced. Fixed Income 57.4%, Technology 12.3%. Consistently positive across market cycles — only fund with positive 2018 performance (+2.90%). Active tactical allocation can shift positioning. Energy 7.7% + Healthcare 7.5%. Fidelity manager track record excellent. Consensus: +8-11%."},
+  "Equitable PH&N Balanced":
+    {p26:8.5,p26note:"Global balanced. Fixed Income 50%, Technology 15.8%, Financials 13.4%. RBC/PH&N quality management. Multi-currency balanced fund of funds. 10yr annualized 6.55%. Positive in 2020 (+12%) showed Covid resilience. Consensus: +7-10%."},
+  "Equitable Franklin Core ETF Portfolio":
+    {p26:9.0,p26note:"Core balanced ETF portfolio. US Equity 31.7% + Intl 14.1% + Canadian 16% + Fixed Income 35.5%. Diversified Franklin ETF blend. 3yr annualized 11.52%. Low-to-medium risk. Strong diversification = consistency. Consensus: +7-11%."},
+  "Equitable Franklin Growth ETF Portfolio":
+    {p26:11.0,p26note:"Growth ETF portfolio. US Equity 40.2% + Canadian 21.3% + International 18.9% = 80.4% equity. Higher equity weight captures more upside. Franklin FTSE US Index ETF (38.25%) + Canadian All Cap. 5yr annualized 8.50%. Growth tilt favours 2026 AI theme. Consensus: +9-13%."},
+  "Equitable Income":
+    {p26:7.0,p26note:"Income-heavy balanced. Canadian Bonds 55.4% + Canadian Equity 24.5%. Bond-heavy = limited upside. Q4 quartile across virtually all periods. Only 8.86% in 2025 when equity funds earned 15-30%. 10yr annualized 4.29%. Not recommended for growth TFSA. Consensus: +5-8%."},
+  "Equitable Canoe Enhanced Income":
+    {p26:4.5,p26note:"Fixed income balanced. Fixed Income 55.9%, Cash 19.1%. Very defensive. 2022 surprisingly positive (+5.41%) from bond income. Low equity (15.6% Canadian + 12.3% US). 10yr annualized 3.23% barely beats inflation. Not for TFSA growth. Consensus: +3-6%."},
+  "Equitable Franklin ClearBridge Canadian Small Cap":
+    {p26:15.0,p26note:"Canadian small-cap. See above for details."},
+  // ── FIXED INCOME / BOND ────────────────────────────────────────────
+  // BoC at 2.25% (bottom of neutral range). Likely holds in 2026.
+  // Canadian bonds: modest positive returns (+2-4%) from carry income.
+  // Global bonds: slightly better as US dollar weakens.
+  "Equitable Bond":
+    {p26:3.0,p26note:"Canadian bond fund. BoC held at 2.25% — bottom of neutral range. RBC: 'credit markets may not be fully appreciating issuer risks.' Bond returns limited by low coupons and rate stability. 10yr annualized 0.35% — structurally poor for TFSA. Modest income (+3%) is best-case. Consensus: +2-4%."},
+  "Equitable Vanguard Canadian Aggregate Bond Index ETF":
+    {p26:3.0,p26note:"Broad Canadian bond index (VAB). Government 69.6% + Corporate 29.1%. BoC at 2.25% = stable bond prices. Duration risk if rates rise. 10yr annualized 0.02% — truly terrible for long-term TFSA wealth building. 2022 was -13.40%. Consensus: +2-4%. NOT for TFSA growth."},
+  "Equitable Franklin Canadian Core Plus Bond":
+    {p26:3.5,p26note:"Canadian Core Plus Bond. Best-in-class bond fund. MER 1.95% (lowest). Q2 quartile in 2025. Mix of government + corporate + high-yield. BoC stability = carry income. Slightly better than pure government bonds. Consensus: +2.5-4.5%. Still not for TFSA growth."},
+  "Equitable Franklin Brandywine U.S. High Yield":
+    {p26:5.0,p26note:"High-yield bonds. Despite LOW-TO-MEDIUM risk rating, high yield has significant credit risk. Narrow spreads = limited additional return. 10yr annualized 3.89%. Goldman: 'credit markets not fully appreciating issuer risks.' Only 2.55% in 2025. Slightly better than investment grade bonds. Consensus: +3-7%."},
+  "Equitable Invesco Global Bond":
+    {p26:3.0,p26note:"Global fixed income. Europe 19.7% (German bunds), North America 74.8%. BoC + Fed expected stable. Weak USD adds ~1-2% for CAD investors. 10yr annualized 0.72%. Q4 quartile in 2025. Not suitable for TFSA wealth building. Consensus: +2-4%."},
+  "Equitable Franklin Conservative Income ETF Portfolio":
+    {p26:5.5,p26note:"Conservative income ETF blend. Fixed Income 73.3%, Equity 26.7%. Multi-asset Franklin ETF mix. More diversified than pure bond funds. Some equity upside from US (13.1%) + Canadian (8%) + International (6.7%). 5yr annualized 2.18% shows limited growth. Better used for capital preservation. Consensus: +4-7%."},
+  "Equitable Money Market":
+    {p26:1.8,p26note:"Money market fund. BoC overnight rate at 2.25%. Money market yields have been declining from 2024 highs as BoC cut rates. 2025: 1.97%. 2026: likely 1.5-2.0% as rates remain stable. Inflation at 1.8% (Feb 2026) means real return near zero. Use for temporary cash parking only. Consensus: +1.5-2.0%."},
+  // ── SOME BALANCED/SPECIALTY NOT COVERED ABOVE ─────────────────────
+  "Equitable Fidelity® Climate Leadership Balanced":
+    {p26:11.0,p26note:"Already covered above."},
+  "Equitable Dynamic Global Real Estate":
+    {p26:7.0,p26note:"Global real estate (REIT). Real Estate 86.4%. REITs sensitive to interest rates — BoC stable at 2.25% neutral for REITs. US REITs benefit from AI data center demand (Equinix, Prologis). Healthcare REITs (Chartwell, Ventas) — aging demographics tailwind. But -19.16% in 2022 = rate risk. Consensus: +5-9%."},
+  "Equitable Dynamic Value Balanced":
+    {p26:9.5,p26note:"Already covered above."},
+  "Equitable Franklin Canadian Monthly Income and Growth":
+    {p26:7.5,p26note:"Already covered above."},
+  "Equitable Equitable Equity":
+    {p26:10.0,p26note:"New ETF-based global equity fund (inception Nov 2025). US 45% + Canadian 39.1% + International 11.9%. Actively managed ETF blend. No historical data but composition suggests 10-12% return potential following S&P 500 + TSX consensus. MER 2.40% competitive. Consensus: +8-12%."},
+  "Equitable Equity":
+    {p26:10.0,p26note:"New ETF-based global equity (inception Nov 2025). Technology 39.7%, Financials 23.2%. US 45% + Canadian 39.1% exposure. Tracks BMO S&P 500 ETF (31.6%), BMO TSX ETF (18.5%), Invesco QQQ (14.6%). Mirrors S&P 500 + TSX + NASDAQ blend. MER 2.40%. Consensus: +8-12%."},
+  "Equitable Dynamic Equity Income":
+    {p26:9.0,p26note:"Already covered above."},
+  "Equitable Invesco S&P/TSX 60 Equal Weight Index ETF":
+    {p26:9.0,p26note:"Already covered above."},
+  "Equitable Fidelity® Dividend":
+    {p26:10.0,p26note:"Already covered above."},
+};
+
+// Inject 2026 predictions into fund objects
+F.forEach(f=>{
+  const pred=PRED_2026[f.nm];
+  if(pred){f.p26=pred.p26;f.p26note=pred.p26note;}
+});
+
+
+
+// Pre-star all BUY-rated funds (11 recommended)
+document.addEventListener('DOMContentLoaded',()=>{
+  F.filter(f=>f.rec==='buy').forEach(f=>ST.starred.add(f.nm));
+  try{
+    initDash();renderFundsTable();popCmp();renderCmp();popCalcSelect();renderCalc();popMapSelect();renderMap();
+  }catch(e){console.error('Init error:',e);}
+});
+
+// ═══════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const pg=document.getElementById('page-'+id);
+  if(pg)pg.classList.add('active');
+  if(btn)btn.classList.add('active');
+}
+function toggleTheme(){
+  const t=isDark()?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('theme-ico').textContent=t==='dark'?'☀️':'🌙';
+  setTimeout(()=>{try{initDash();renderCmp();renderCalc();renderMap();}catch(e){}},80);
+}
+
+// helper to open modal by stored ref
+let _bestFundNm='';
+let _predFundNm='';
+function openModalById(id){
+  if(id==='best'&&_bestFundNm)openModal(_bestFundNm);
+  if(id==='pred'&&_predFundNm)openModal(_predFundNm);
+}
+
+// ═══════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════
+let dCharts=[];
+function initDash(){
+  dCharts.forEach(c=>{try{c.destroy();}catch(e){}});dCharts=[];
+  const wr=F.filter(f=>f.r25!=null);
+  const best=wr.reduce((a,b)=>b.r25>a.r25?b:a);
+  _bestFundNm=best.nm;
+  // Best 2026 prediction — highest p26
+  const pred26=F.filter(f=>f.p26!=null).reduce((a,b)=>b.p26>a.p26?b:a,{p26:-999,nm:'',p26note:''});
+  _predFundNm=pred26.nm;
+  document.getElementById('d-best').textContent=(best.r25>=0?'+':'')+best.r25+'%';
+  document.getElementById('d-bestN').textContent=best.nm;
+  document.getElementById('d-buyn').textContent=F.filter(f=>f.rec==='buy').length;
+  document.getElementById('d-pred').textContent=(pred26.p26>=0?'+':'')+pred26.p26+'%';
+  document.getElementById('d-predN').textContent='est. · '+pred26.nm;
+  // TOP 5
+  const top5candidates=[
+    F.find(f=>f.nm.includes('Global All Cap')),
+    F.find(f=>f.nm.includes('Vanguard S&P 500 Index')),
+    F.find(f=>f.nm.includes('TSX Composite ESG')),
+    F.find(f=>f.nm.includes('Fidelity® Special')),
+    F.find(f=>f.nm.includes('Vanguard Canada Index ETF')),
+  ].filter(Boolean);
+  // Sort descending by 5yr average return
+  const top5=[...top5candidates].sort((a,b)=>avg5(b)-avg5(a));
+
+  // Build 5-year mini grid for each fund (2021→2025)
+  const yrs=[{k:'r21',lbl:'2021'},{k:'r22',lbl:'2022'},{k:'r23',lbl:'2023'},{k:'r24',lbl:'2024'},{k:'r25',lbl:'2025'}];
+  function pick5YrGrid(f){
+    const vals=yrs.map(y=>f[y.k]);
+    const mx=Math.max(...vals.filter(v=>v!=null).map(Math.abs),10);
+    return `<div class="pk-5yr">`+yrs.map(({k,lbl},i)=>{
+      const v=f[k];
+      const isPos=v!=null&&v>=0;
+      const color=v==null?'var(--text3)':isPos?'var(--accent3)':'var(--red)';
+      const barW=v!=null?Math.round(Math.abs(v)/mx*100):0;
+      const barColor=isPos?'var(--accent3)':'var(--red)';
+      return `<div class="pk-yr-col">
+        <div class="pk-yr-lbl">${lbl}</div>
+        <div class="pk-yr-val" style="color:${color}">${v!=null?(v>=0?'+':'')+v.toFixed(1)+'%':'—'}</div>
+        <div class="pk-yr-bar" style="background:${barColor};opacity:.7;width:${barW}%;min-width:${v!=null?2:0}px;"></div>
+      </div>`;
+    }).join('')+'</div>';
+  }
+
+  document.getElementById('picks5').innerHTML=top5.map((f,i)=>`
+    <div class="pick5c" onclick="openModal('${f.nm.replace(/'/g,"\\'")}')">
+      <div class="pk-rank">#${i+1} · 5yr avg: ${avg5(f).toFixed(1)}%</div>
+      <span class="pk-cat">${f.fc||f.cat}</span>
+      <div class="pk-name">${f.nm.replace('Equitable ','')}</div>
+      <div class="pk-ret">${f.r25!=null?(f.r25>=0?'+':'')+f.r25+'%':'—'}</div>
+      <div class="pk-mer">MER: ${f.mer}% · NAV: $${f.nav||'—'} · Risk: ${f.risk}</div>
+      ${pick5YrGrid(f)}
+    </div>
+  `).join('');
+  renderDashCharts();
+}
+
+function renderDashCharts(){
+  const {gc,tc}=chartColors();
+  const mkChart=(id,type,data,opts={})=>{
+    const ctx=document.getElementById(id);if(!ctx)return null;
+    try{return new Chart(ctx,{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},...(opts.plugins||{})},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},...(opts.scales||{}),...{y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'}}}},...(opts.extra||{})}});}catch(e){console.error('Chart error:',e);return null;}
+  };
+  // Category avg — 5 canonical cats
+  const cats=['Global','US','Canadian','Bond','Balanced'];
+  const catLabels=['🌍 Global','🇺🇸 US','🇨🇦 Canadian','🏦 Fixed Inc','⚖️ Balanced'];
+  const catAvgs=cats.map(c=>{const fs=F.filter(f=>normCat(f.cat)===c&&f.r25!=null);return fs.length?+(fs.reduce((s,f)=>s+f.r25,0)/fs.length).toFixed(1):0;});
+  const c1=mkChart('dc-cat','bar',{labels:catLabels,datasets:[{data:catAvgs,backgroundColor:['rgba(0,210,255,.6)','rgba(167,139,250,.6)','rgba(255,77,109,.6)','rgba(255,184,0,.6)','rgba(0,255,157,.6)'],borderRadius:6,borderSkipped:false}]});
+  if(c1){
+    c1.options.onClick=(e)=>{const pts=c1.getElementsAtEventForMode(e,'nearest',{intersect:true},true);if(pts.length){const cat=cats[pts[0].index];ST.cat=cat;document.getElementById('f-cat').value=cat;renderFundsTable();showPage('allfunds',document.querySelectorAll('.nav-btn')[1]);}};
+    dCharts.push(c1);
+  }
+  // Top 10 — clickable
+  const t10=[...F].filter(f=>f.r25!=null).sort((a,b)=>b.r25-a.r25).slice(0,10);
+  const ctx2=document.getElementById('dc-top');
+  if(ctx2){
+    try{
+      const c2=new Chart(ctx2,{type:'bar',data:{labels:t10.map(f=>f.nm.replace('Equitable ','').substring(0,16)),datasets:[{data:t10.map(f=>f.r25),backgroundColor:t10.map((_,i)=>`hsla(${175+i*13},80%,55%,.7)`),borderRadius:5,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>=0?'+':'')+c.raw+'%'}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:tc,font:{size:10}}}}}});
+      c2.options.onClick=(e)=>{const pts=c2.getElementsAtEventForMode(e,'nearest',{intersect:true},true);if(pts.length){openModal(t10[pts[0].index].nm);}};
+      dCharts.push(c2);
+    }catch(e){}
+  }
+  // 5yr avg — clickable
+  const t8=[...F].filter(f=>[f.r25,f.r24,f.r23,f.r22,f.r21].filter(x=>x!=null).length>=4).sort((a,b)=>avg5(b)-avg5(a)).slice(0,8);
+  const ctx3=document.getElementById('dc-5y');
+  if(ctx3){
+    try{
+      const c3=new Chart(ctx3,{type:'bar',data:{labels:t8.map(f=>f.nm.replace('Equitable ','').substring(0,16)),datasets:[{data:t8.map(f=>+avg5(f).toFixed(1)),backgroundColor:'rgba(167,139,250,.65)',borderRadius:5,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.raw.toFixed(1)+'% avg/yr'}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:tc,font:{size:10}}}}}});
+      c3.options.onClick=(e)=>{const pts=c3.getElementsAtEventForMode(e,'nearest',{intersect:true},true);if(pts.length){openModal(t8[pts[0].index].nm);}};
+      dCharts.push(c3);
+    }catch(e){}
+  }
+  // MER distribution — clickable (filter by MER bucket)
+  const merBuckets={'<2.0':0,'2.0-2.5':0,'2.5-2.9':0,'≥3.0':0};
+  F.forEach(f=>{if(f.mer<2.0)merBuckets['<2.0']++;else if(f.mer<2.5)merBuckets['2.0-2.5']++;else if(f.mer<3.0)merBuckets['2.5-2.9']++;else merBuckets['≥3.0']++;});
+  const ctx4=document.getElementById('dc-mer');
+  if(ctx4){
+    try{
+      const c4=new Chart(ctx4,{type:'doughnut',data:{labels:Object.keys(merBuckets),datasets:[{data:Object.values(merBuckets),backgroundColor:['rgba(0,255,157,.7)','rgba(0,210,255,.7)','rgba(255,184,0,.7)','rgba(255,77,109,.7)'],borderWidth:0,hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:12}},tooltip:{callbacks:{label:c=>c.label+': '+c.raw+' funds'}}}}});
+      // Click: sort All Funds by MER ascending
+      c4.options.onClick=(e)=>{ST.sort='mer';document.getElementById('f-sort').value='mer';renderFundsTable();showPage('allfunds',document.querySelectorAll('.nav-btn')[1]);};
+      dCharts.push(c4);
+    }catch(e){}
+  }
+}
+
+// ═══════════════════════════════════════════════
+// ALL FUNDS TABLE
+// ═══════════════════════════════════════════════
+function applyFilters(){
+  ST.search=document.getElementById('f-search').value.toLowerCase();
+  ST.cat=document.getElementById('f-cat').value;
+  ST.risk=document.getElementById('f-risk').value;
+  ST.rec=document.getElementById('f-rec').value;
+  ST.sort=document.getElementById('f-sort').value;
+  renderFundsTable();
+}
+function sortBy(k){ST.sort=k;document.getElementById('f-sort').value=k;renderFundsTable();}
+function togStarFilter(){ST.starOnly=!ST.starOnly;document.getElementById('btnStar').classList.toggle('on',ST.starOnly);renderFundsTable();}
+function togStarItem(nm,el){if(ST.starred.has(nm)){ST.starred.delete(nm);el.classList.remove('on');}else{ST.starred.add(nm);el.classList.add('on');}renderFundsTable();}
+
+function renderFundsTable(){
+  const data=getFiltered();
+  const tbody=document.getElementById('funds-tbody');
+  const noRes=document.getElementById('no-res');
+  const cnt=document.getElementById('f-count');
+  if(cnt)cnt.textContent=data.length+' funds';
+  if(!data.length){if(tbody)tbody.innerHTML='';if(noRes)noRes.style.display='block';return;}
+  if(noRes)noRes.style.display='none';
+  if(!tbody)return;
+  // Use full PDF name (from nm field which IS the full name including "Equitable")
+  // Display category with normCat for badge color
+  tbody.innerHTML=data.map(f=>{
+    const dispCat=normCat(f.cat);
+    const navDisplay=f.nav!=null?`<span style="font-family:'Space Mono',monospace;font-weight:700;color:var(--accent);">$${f.nav.toFixed(2)}</span>`:'<span style="color:var(--text3)">—</span>';
+    const isStarred=ST.starred.has(f.nm);
+    return `
+    <tr onclick="openModal('${f.nm.replace(/'/g,"\\'")}')">
+      <td onclick="event.stopPropagation()"><button class="star-b ${isStarred?'on':''}" onclick="togStarItem('${f.nm.replace(/'/g,"\\'")}',this)">★</button></td>
+      <td class="fn">${f.nm}<small>${f.fc}</small></td>
+      <td><span class="cb ${CC[f.cat]||'cbB'}">${dispCat==='Bond'?'Fixed Inc':dispCat}</span></td>
+      <td><div class="mer-bar-wrap"><span class="mer-text">${f.mer}%</span><div class="mer-bar"><div class="mer-fill" style="width:${Math.min(100,(f.mer/3.5)*100)}%"></div></div></div></td>
+      <td>${navDisplay}</td>
+      <td>${pct(f.r25)}</td><td>${pct(f.r24)}</td><td>${pct(f.r23)}</td><td>${pct(f.r22)}</td><td>${pct(f.r21)}</td>
+      <td>${spk(f)}</td>
+      <td>${f.p26!=null?`<span class="pred-badge ${f.p26>=8?'pred-pos':f.p26>=4?'pred-neu':'pred-neg'}" title="${(f.p26note||'').replace(/"/g,"'").substring(0,120)}...">🔮 ${f.p26>=0?'+':''}${f.p26}%</span>`:'<span class="rn neu">—</span>'}</td>
+      <td><span class="rec ${RC[f.rec]}">${RL[f.rec]}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════
+function openModal(nm){
+  const f=F.find(x=>x.nm===nm);if(!f)return;
+  const cmpd=f.compoundRet||{};
+  const hasCmpd=Object.keys(cmpd).length>0;
+
+  // Sector bars
+  const sectorKeys=Object.keys(f.sector||{});
+  const sectorTotal=Object.values(f.sector||{}).reduce((a,b)=>a+b,0)||100;
+  const sectorColors=['#00d2ff','#00ff9d','#7c5cbf','#ff4d6d','#ffb800','#a78bfa','#34d399','#fb7185'];
+
+  // Asset allocation bars
+  const assetKeys=Object.keys(f.assets||{});
+  const assetTotal=Object.values(f.assets||{}).reduce((a,b)=>a+Math.max(0,b),0)||100;
+
+  // Geo bars
+  const geoKeys=Object.keys(f.geo||{});
+  const geoTotal=Object.values(f.geo||{}).reduce((a,b)=>a+b,0)||100;
+
+  document.getElementById('modal-content').innerHTML=`
+    <div class="m-name">${f.nm}</div>
+    <div class="m-cat-full">${f.fc} · ${normCat(f.cat)} · Risk: ${f.risk}</div>
+    <div class="m-badge-row">
+      <span class="cb ${CC[f.cat]||'cbB'}">${normCat(f.cat)==='Bond'?'Fixed Inc':normCat(f.cat)}</span>
+      <span class="rec ${RC[f.rec]}">${RL[f.rec]}</span>
+      ${f.nav!=null?`<span style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--accent3);font-weight:700;">NAV: $${f.nav.toFixed(2)}</span>`:''}
+      ${ST.starred.has(f.nm)?`<span style="color:var(--amber);font-size:.8rem;">⭐ STARRED</span>`:''}
+    </div>
+
+    <div class="m-metrics">
+      <div class="m-met"><div class="my">MER</div><div class="mv" style="color:var(--amber)">${f.mer}%</div></div>
+      <div class="m-met"><div class="my">NAV/Unit</div><div class="mv" style="color:var(--accent)">${f.nav!=null?'$'+f.nav.toFixed(2):'—'}</div></div>
+      <div class="m-met"><div class="my">Risk</div><div class="mv">${f.risk}</div></div>
+      <div class="m-met"><div class="my">5yr Avg</div><div class="mv" style="color:var(--accent3)">${avg5(f).toFixed(1)}%</div></div>
+      <div class="m-met"><div class="my">2025</div><div class="mv" style="color:${f.r25!=null&&f.r25>=0?'var(--accent3)':'var(--red)'}">${f.r25!=null?(f.r25>=0?'+':'')+f.r25+'%':'—'}</div></div>
+      <div class="m-met"><div class="my">2024</div><div class="mv" style="color:${f.r24!=null&&f.r24>=0?'var(--accent3)':'var(--red)'}">${f.r24!=null?(f.r24>=0?'+':'')+f.r24+'%':'—'}</div></div>
+      <div class="m-met"><div class="my">2023</div><div class="mv" style="color:${f.r23!=null&&f.r23>=0?'var(--accent3)':'var(--red)'}">${f.r23!=null?(f.r23>=0?'+':'')+f.r23+'%':'—'}</div></div>
+      <div class="m-met"><div class="my">2022</div><div class="mv" style="color:${f.r22!=null&&f.r22>=0?'var(--accent3)':'var(--red)'}">${f.r22!=null?(f.r22>=0?'+':'')+f.r22+'%':'—'}</div></div>
+    </div>
+    ${f.p26!=null?`<div class="advisor-note" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(124,92,191,.12),rgba(0,210,255,.08));">
+      <div class="at" style="color:var(--purple);">🔮 2026 PREDICTION — ANALYST CONSENSUS</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+        <span style="font-family:'Space Mono',monospace;font-size:1.4rem;font-weight:700;color:${f.p26>=0?'var(--accent3)':'var(--red)'}">${f.p26>=0?'+':''}${f.p26}%</span>
+        <span style="font-size:.72rem;color:var(--text2)">estimated return (not guaranteed)</span>
+      </div>
+      <p style="font-size:.75rem;">${f.p26note||''}</p>
+    </div>`:''}
+
+
+    <div class="m-chart"><canvas id="modal-chart"></canvas></div>
+
+    ${hasCmpd?`
+    <div class="m-section">COMPOUND RETURNS (ANNUALIZED)</div>
+    <div class="cmpd-grid">${Object.entries(cmpd).map(([k,v])=>`<div class="cmpd-item"><div class="cp">${k.toUpperCase()}</div><div class="cv" style="color:${v>=0?'var(--accent3)':'var(--red)'}">${v>=0?'+':''}${v.toFixed(2)}%</div></div>`).join('')}</div>
+    `:''}
+
+    ${geoKeys.length?`
+    <div class="m-section">GEOGRAPHIC ALLOCATION</div>
+    ${geoKeys.map((k,i)=>`<div class="alloc-bar-row"><div class="alloc-bar-label"><span class="al">${k}</span><span class="ar">${(f.geo[k]).toFixed(1)}%</span></div><div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${Math.min(100,(f.geo[k]/geoTotal)*100)}%;background:${sectorColors[i%sectorColors.length]}"></div></div></div>`).join('')}
+    `:''}
+
+    ${sectorKeys.length?`
+    <div class="m-section">SECTOR ALLOCATION</div>
+    ${sectorKeys.map((k,i)=>`<div class="alloc-bar-row"><div class="alloc-bar-label"><span class="al">${k}</span><span class="ar">${(f.sector[k]).toFixed(1)}%</span></div><div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${Math.min(100,(f.sector[k]/sectorTotal)*100)}%;background:${sectorColors[i%sectorColors.length]}"></div></div></div>`).join('')}
+    `:''}
+
+    ${assetKeys.length?`
+    <div class="m-section">ASSET ALLOCATION</div>
+    ${assetKeys.map((k,i)=>`<div class="alloc-bar-row"><div class="alloc-bar-label"><span class="al">${k}</span><span class="ar">${Math.max(0,f.assets[k]).toFixed(1)}%</span></div><div class="alloc-bar-track"><div class="alloc-bar-fill" style="width:${Math.min(100,(Math.max(0,f.assets[k])/assetTotal)*100)}%;background:${sectorColors[i%sectorColors.length]}"></div></div></div>`).join('')}
+    `:''}
+
+    ${f.holdings&&f.holdings.length?`
+    <div class="m-section">TOP ${f.holdings.length} HOLDINGS</div>
+    <div class="holdings-grid">${f.holdings.map(h=>`<div class="hold-item"><div class="hn">${h.n}</div><div class="hp">${h.p.toFixed(2)}%</div></div>`).join('')}</div>
+    `:''}
+
+    <div class="m-section">FUND DETAILS</div>
+    <div class="m-row"><span class="mk">Fund Category</span><span class="mval">${f.fc}</span></div>
+    <div class="m-row"><span class="mk">MER (Estimated)</span><span class="mval" style="color:var(--amber)">${f.mer}%</span></div>
+    <div class="m-row"><span class="mk">Risk Level</span><span class="mval">${f.risk}</span></div>
+    <div class="m-row"><span class="mk">Equity Allocation</span><span class="mval">${f.eq!=null?f.eq+'%':'—'}</span></div>
+    <div class="m-row"><span class="mk">Cash Allocation</span><span class="mval">${f.cash!=null?f.cash+'%':'—'}</span></div>
+    <div class="m-row"><span class="mk">5yr Average Return</span><span class="mval" style="color:var(--accent3)">${avg5(f).toFixed(2)}%</span></div>
+    ${f.inceptionDate?`<div class="m-row"><span class="mk">Date of Inception</span><span class="mval">${f.inceptionDate}</span></div>`:''}
+
+    <div class="advisor-note">
+      <div class="at">ADVISOR ANALYSIS</div>
+      <p>${f.note}</p>
+    </div>
+  `;
+
+  document.getElementById('modal-overlay').classList.add('open');
+
+  setTimeout(()=>{
+    const ctx=document.getElementById('modal-chart');if(!ctx)return;
+    const dk=isDark();
+    const gc=dk?'rgba(255,255,255,.04)':'rgba(0,0,0,.05)';
+    const tc=dk?'#3a5270':'#8aa0bb';
+    const lbs=['2016','2017','2018','2019','2020','2021','2022','2023','2024','2025'];
+    const vs=[f.r16,f.r17,f.r18,f.r19,f.r20,f.r21,f.r22,f.r23,f.r24,f.r25];
+    const fl=lbs.filter((_,i)=>vs[i]!=null);const fv=vs.filter(v=>v!=null);
+    try{new Chart(ctx,{type:'bar',data:{labels:fl,datasets:[{data:fv,backgroundColor:fv.map(v=>v>=0?'rgba(0,255,157,.65)':'rgba(255,77,109,.65)'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>(c.raw>=0?'+':'')+c.raw.toFixed(2)+'%'}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>(v>=0?'+':'')+v+'%'}}}}});}catch(e){}
+  },60);
+}
+function closeModal(e){if(e.target===document.getElementById('modal-overlay'))closeModalDirect();}
+function closeModalDirect(){document.getElementById('modal-overlay').classList.remove('open');}
+
+// ═══════════════════════════════════════════════
+// COMPARE
+// ═══════════════════════════════════════════════
+function popCmp(){
+  const opts=F.map(f=>`<option value="${f.nm}">${f.nm.replace('Equitable ','')}</option>`).join('');
+  ['cmpA','cmpB'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  const cEl=document.getElementById('cmpC');if(cEl)cEl.innerHTML='<option value="">— None —</option>'+opts;
+  const vxc=F.find(f=>f.nm.includes('Global All Cap'));
+  const vfv=F.find(f=>f.nm.includes('S&P 500 Index ETF'));
+  const cad=F.find(f=>f.nm.includes('Canada Index ETF'));
+  const a=document.getElementById('cmpA');const b=document.getElementById('cmpB');const c=document.getElementById('cmpC');
+  if(a&&vxc)a.value=vxc.nm;if(b&&vfv)b.value=vfv.nm;if(c&&cad)c.value=cad.nm;
+}
+function renderCmp(){
+  const aEl=document.getElementById('cmpA');const bEl=document.getElementById('cmpB');const cEl=document.getElementById('cmpC');
+  if(!aEl||!bEl)return;
+  const fa=F.find(f=>f.nm===aEl.value);const fb=F.find(f=>f.nm===bEl.value);
+  const fcN=cEl?cEl.value:'';const fc=fcN?F.find(f=>f.nm===fcN):null;
+  if(!fa||!fb)return;
+  const {gc,tc}=chartColors();
+  const lbs=['2016','2017','2018','2019','2020','2021','2022','2023','2024','2025'];
+  const gv=f=>lbs.map((_,i)=>[f.r16,f.r17,f.r18,f.r19,f.r20,f.r21,f.r22,f.r23,f.r24,f.r25][i]);
+  const cols=['#00d2ff','#a78bfa','#ffb800'];
+  const ctx=document.getElementById('ch-cmp');if(!ctx)return;
+  if(ST.cmpCI)try{ST.cmpCI.destroy();}catch(e){}
+  try{ST.cmpCI=new Chart(ctx,{type:'line',data:{labels:lbs,datasets:[fa,fb,fc].filter(Boolean).map((f,i)=>({label:f.nm.replace('Equitable ','').substring(0,28),data:gv(f),borderColor:cols[i],backgroundColor:cols[i]+'18',tension:.35,fill:false,pointRadius:4,pointBackgroundColor:cols[i],borderWidth:2.5}))},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tc,font:{size:11},boxWidth:10}},tooltip:{callbacks:{label:c=>{const v=c.raw;return c.dataset.label+': '+(v!=null?(v>=0?'+':'')+v.toFixed(1)+'%':'—');}}}},scales:{x:{grid:{color:gc},ticks:{color:tc}},y:{grid:{color:gc},ticks:{color:tc,callback:v=>(v>=0?'+':'')+v+'%'}}}}});}catch(e){}
+  const cards=document.getElementById('cmp-cards');if(!cards)return;
+  cards.innerHTML=[fa,fb,fc].filter(Boolean).map((f,i)=>`
+    <div class="cmp-c" style="border-top-color:${cols[i]}" onclick="openModal('${f.nm.replace(/'/g,"\\'")}')">
+      <div class="cmp-c-name">${f.nm.replace('Equitable ','')}</div>
+      <div class="cmp-grid">${[['2025',f.r25!=null?(f.r25>=0?'+':'')+f.r25+'%':'—'],['2024',f.r24!=null?(f.r24>=0?'+':'')+f.r24+'%':'—'],['2023',f.r23!=null?(f.r23>=0?'+':'')+f.r23+'%':'—'],['2022',f.r22!=null?(f.r22>=0?'+':'')+f.r22+'%':'—'],['5yr Avg',avg5(f).toFixed(1)+'%'],['MER',f.mer+'%'],['Risk',f.risk],['Rec',RL[f.rec]]].map(([k,v])=>`<div class="cmp-stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}</div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// GROWTH CALC
+// ═══════════════════════════════════════════════
+function popCalcSelect(){
+  const s=document.getElementById('calc-fund');if(!s)return;
+  s.innerHTML=F.map(f=>`<option value="${f.nm}">${f.nm.replace('Equitable ','')}</option>`).join('');
+  const vxc=F.find(f=>f.nm.includes('Global All Cap'));
+  if(vxc)s.value=vxc.nm;
+}
+function renderCalc(){
+  const m=+document.getElementById('rC').value;
+  const y=+document.getElementById('rY').value;
+  const rate=+document.getElementById('rR').value/100;
+  const mr=rate/12;const n=y*12;
+  const fv=m*((Math.pow(1+mr,n)-1)/mr)*(1+mr);
+  const contrib=m*12*y;
+  document.getElementById('cv-t').textContent='$'+Math.round(contrib).toLocaleString();
+  document.getElementById('cv-v').textContent='$'+Math.round(fv).toLocaleString();
+  document.getElementById('cv-g').textContent='+$'+Math.round(fv-contrib).toLocaleString();
+  const {gc,tc}=chartColors();
+  const lbs=[],cs=[],vs=[];
+  for(let i=1;i<=y;i++){lbs.push('Yr'+i);cs.push(Math.round(m*12*i));const n2=i*12;vs.push(Math.round(m*((Math.pow(1+mr,n2)-1)/mr)*(1+mr)));}
+  const ctx=document.getElementById('ch-calc');if(!ctx)return;
+  if(ST.calcCI)try{ST.calcCI.destroy();}catch(e){}
+  try{ST.calcCI=new Chart(ctx,{type:'line',data:{labels:lbs,datasets:[
+    {
+      label:'Portfolio Value',
+      data:vs,
+      borderColor:'#00d2ff',
+      backgroundColor:'rgba(0,210,255,.12)',
+      tension:.4,
+      fill:true,
+      pointRadius:y>15?0:4,
+      pointBackgroundColor:'#00d2ff',
+      pointBorderColor:'#00d2ff',
+      pointBorderWidth:2,
+      borderWidth:2.5,
+      borderDash:[],
+    },
+    {
+      label:'Contributed',
+      data:cs,
+      borderColor:isDark()?'#4a6585':'#8aa0bb',
+      backgroundColor:'rgba(100,116,139,.06)',
+      tension:.0,
+      fill:true,
+      pointRadius:0,
+      borderDash:[6,4],
+      borderWidth:1.8,
+    }
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tc,font:{size:11},boxWidth:36,boxHeight:2,padding:20,usePointStyle:false,generateLabels:(chart)=>{const c=isDark()?'#00d2ff':'#0080cc';return chart.data.datasets.map((ds,i)=>({text:ds.label,fillStyle:'transparent',strokeStyle:ds.borderColor,lineWidth:i===0?2.5:1.5,lineDash:i===1?[6,4]:[],hidden:false,datasetIndex:i,color:c}));}}},tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString()}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:8}},y:{grid:{color:gc},ticks:{color:tc,callback:v=>'$'+Math.round(v/1000)+'k',font:{size:10}}}}}});}catch(e){}
+  const ms=[1,2,3,5,7,10,15,20,25,30].filter(i=>i<=y);
+  const tbl=document.getElementById('calc-tbl');if(!tbl)return;
+  tbl.innerHTML=`<div class="funds-table-wrap" style="margin-top:14px"><div class="tbl-scr"><table><thead><tr><th>Year</th><th>Contributed</th><th>Portfolio Value</th><th>Tax-Free Gain</th><th>ROI</th></tr></thead><tbody>${ms.map(i=>{const c2=m*12*i;const n2=i*12;const v2=m*((Math.pow(1+mr,n2)-1)/mr)*(1+mr);const g=v2-c2;return`<tr><td style="font-weight:700;font-family:'Space Mono',monospace">Yr ${i}</td><td>$${Math.round(c2).toLocaleString()}</td><td style="color:var(--accent3);font-weight:700">$${Math.round(v2).toLocaleString()}</td><td style="color:var(--accent)">+$${Math.round(g).toLocaleString()}</td><td><span class="rn pos">+${((g/c2)*100).toFixed(1)}%</span></td></tr>`;}).join('')}</tbody></table></div></div>`;
+}
+
+// ═══════════════════════════════════════════════
+// MAP PAGE
+// ═══════════════════════════════════════════════
+function popMapSelect(){
+  const s=document.getElementById('map-fund');if(!s)return;
+  s.innerHTML=F.map(f=>`<option value="${f.nm}">${f.nm}</option>`).join('');
+  const vxc=F.find(f=>f.nm.includes('Global All Cap'));
+  if(vxc)s.value=vxc.nm;
+  ST.mapFund=vxc||F[0];
+}
+function renderMap(){
+  const s=document.getElementById('map-fund');if(!s)return;
+  const f=F.find(x=>x.nm===s.value)||F[0];
+  if(!f)return;
+  const view=document.getElementById('map-view').value||'geo';
+  const mc=document.getElementById('map-content');if(!mc)return;
+  const sectorColors=['#00d2ff','#00ff9d','#7c5cbf','#ff4d6d','#ffb800','#a78bfa','#34d399','#fb7185','#60a5fa','#f59e0b'];
+
+  let dataObj={};let title='';
+  if(view==='geo'){dataObj=f.geo||{};title='Geographic Allocation';}
+  else if(view==='sector'){dataObj=f.sector||{};title='Sector Allocation';}
+  else if(view==='asset'){dataObj=f.assets||{};title='Asset Allocation';}
+  else if(view==='holdings'&&f.holdings&&f.holdings.length){
+    const holdObj={};f.holdings.forEach(h=>{holdObj[h.n]=h.p;});dataObj=holdObj;title='Top Holdings';
+  }
+
+  const keys=Object.keys(dataObj);
+  const vals=Object.values(dataObj).map(v=>Math.max(0,parseFloat(v)||0));
+  const total=vals.reduce((a,b)=>a+b,0)||100;
+
+  // Section 1: donut + bar chart
+  // Section 2: top holdings (if not viewing holdings already)
+  // NO section 3 (removes the repeating countries grid)
+  mc.innerHTML=`
+    <div class="chart-box" style="margin-bottom:16px">
+      <div class="chart-box-title">${f.nm} — ${title}</div>
+      <div class="chart-box-sub">${f.fc} · MER: ${f.mer}% · NAV: ${f.nav!=null?'$'+f.nav.toFixed(2):'—'} · Risk: ${f.risk}</div>
+      ${keys.length?`
+      <div style="display:grid;grid-template-columns:240px 1fr;gap:24px;align-items:center;">
+        <div style="height:240px;position:relative"><canvas id="map-donut"></canvas></div>
+        <div>
+          ${keys.map((k,i)=>`
+            <div class="geo-bar-row">
+              <div class="geo-label">
+                <span style="color:${sectorColors[i%sectorColors.length]};font-weight:600">${k}</span>
+                <span style="font-family:'Space Mono',monospace;font-size:.7rem;color:var(--text)">${(vals[i]).toFixed(1)}%</span>
+              </div>
+              <div class="geo-track"><div class="geo-fill" style="width:${Math.min(100,(vals[i]/total)*100)}%;background:${sectorColors[i%sectorColors.length]}"></div></div>
+            </div>`).join('')}
+        </div>
+      </div>`:`<p style="color:var(--text2);font-size:.8rem;padding:20px 0">No ${title.toLowerCase()} data available for this fund.</p>`}
+    </div>
+
+    ${f.holdings&&f.holdings.length&&view!=='holdings'?`
+    <div class="chart-box" style="margin-bottom:16px">
+      <div class="chart-box-title">Top ${f.holdings.length} Holdings</div>
+      <div class="chart-box-sub">Companies this fund invests in — as of latest factsheet</div>
+      <div class="holdings-grid">${f.holdings.map((h,i)=>`<div class="hold-item"><div class="hn">${h.n}</div><div class="hp">${h.p.toFixed(2)}%</div><div class="alloc-bar-track" style="margin-top:4px"><div class="alloc-bar-fill" style="width:${Math.min(100,h.p/f.holdings[0].p*100)}%;background:${sectorColors[i%sectorColors.length]}"></div></div></div>`).join('')}</div>
+    </div>`:''}
+  `;
+
+  // Donut chart for map
+  if(keys.length){
+    setTimeout(()=>{
+      const ctx=document.getElementById('map-donut');if(!ctx)return;
+      const {tc}=chartColors();
+      try{new Chart(ctx,{type:'doughnut',data:{labels:keys,datasets:[{data:vals,backgroundColor:sectorColors.slice(0,keys.length),borderWidth:0,hoverOffset:10}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+c.raw.toFixed(1)+'%'}}}}});}catch(e){}
+    },60);
+  }
+}
+// ═══════════════════════════════════════════════
+// LIVE MARKET TICKER
+// Tries 3 methods in sequence until one works:
+// 1. Direct Yahoo Finance v8 (works if no CORS block)
+// 2. corsproxy.io wrapper
+// 3. allorigins.win wrapper
+// Refreshes every 60s. Graceful silent fallback (no error shown).
+// ═══════════════════════════════════════════════
+const TICKER_SYMBOLS=[
+  {sym:'^GSPTSE',  label:'TSX'},
+  {sym:'^GSPC',    label:'S&P 500'},
+  {sym:'^NDX',     label:'NASDAQ 100'},
+  {sym:'GC=F',     label:'Gold'},
+  {sym:'SI=F',     label:'Silver'},
+  {sym:'CL=F',     label:'Oil WTI'},
+  {sym:'CADUSD=X', label:'CAD/USD'},
+  {sym:'BTC-USD',  label:'Bitcoin'},
+  {sym:'VXC.TO',   label:'VXC'},
+  {sym:'VCN.TO',   label:'VCN'},
+  {sym:'VSP.TO',   label:'VSP'},
+];
+
+async function yahooFetch(sym){
+  const base=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=2d`;
+  const proxies=[
+    base,
+    `https://corsproxy.io/?${encodeURIComponent(base)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(base)}`,
+  ];
+  for(const url of proxies){
+    try{
+      const r=await fetch(url,{signal:AbortSignal.timeout(6000)});
+      if(!r.ok)continue;
+      const raw=await r.json();
+      // allorigins wraps in {contents:...}
+      const data=raw.contents?JSON.parse(raw.contents):raw;
+      const meta=data?.chart?.result?.[0]?.meta;
+      if(!meta||!meta.regularMarketPrice)continue;
+      const price=meta.regularMarketPrice;
+      const prev=meta.previousClose||meta.chartPreviousClose;
+      const chgPct=prev?((price-prev)/prev*100):null;
+      return{price,chgPct,currency:meta.currency||''};
+    }catch{continue;}
+  }
+  return null;
+}
+
+function fmtPrice(price,sym){
+  if(sym.includes('CAD')||sym.includes('USD'))return price.toFixed(4);
+  if(price>10000)return price.toLocaleString('en-CA',{maximumFractionDigits:0});
+  if(price>100)return price.toFixed(2);
+  return price.toFixed(2);
+}
+
+async function loadLiveTicker(){
+  const el=document.getElementById('ticker-content');
+  if(!el)return;
+  // Fetch all symbols in parallel
+  const results=await Promise.allSettled(
+    TICKER_SYMBOLS.map(async({sym,label})=>({sym,label,q:await yahooFetch(sym)}))
+  );
+  const items=results
+    .filter(r=>r.status==='fulfilled'&&r.value.q)
+    .map(r=>r.value);
+  // If no data at all, hide ticker bar silently
+  if(!items.length){
+    document.getElementById('live-ticker').style.display='none';
+    return;
+  }
+  // Build scrolling items × 2 for seamless loop
+  const makeItems=()=>items.map(({label,q,sym})=>{
+    const p=q.chgPct;
+    const cls=p>0.05?'up':p<-0.05?'dn':'flat';
+    const arrow=p>0.05?'▲':p<-0.05?'▼':'–';
+    return `<span class="t-item">
+      <span class="t-name">${label}</span>
+      <span class="t-val">${fmtPrice(q.price,sym)}</span>
+      <span class="t-chg ${cls}">${arrow}${p!=null?(p>=0?'+':'')+p.toFixed(2)+'%':'—'}</span>
+    </span>`;
+  }).join('');
+  el.innerHTML=makeItems()+makeItems();
+  el.style.animationDuration=Math.max(30,items.length*4)+'s';
+  // Show ticker bar (in case it was hidden)
+  document.getElementById('live-ticker').style.display='flex';
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(loadLiveTicker,800);
+  setInterval(loadLiveTicker,60000);
+});
+</script>
+</body>
+</html>
